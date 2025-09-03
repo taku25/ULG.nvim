@@ -9,7 +9,7 @@ local M = {
   cache = { dirname = "ULG" },
   ui = {
     picker = {
-      mode = "fzf-lua",
+      mode = "auto",
       prefer = { "telescope", "fzf-lua", "native", "dummy" },
     },
   },
