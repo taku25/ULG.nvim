@@ -15,7 +15,7 @@ local M = {
   },
 
   -- viewerテーブルをトップレベルに展開
-  position = "right", -- "right", "left", "bottom", "top", "tab"
+  position = "bottom", -- "right", "left", "bottom", "top", "tab"
   vertical_size = 80,
   horizontal_size = 15,
   win_open_command = nil,
@@ -81,12 +81,6 @@ local M = {
         hl_group = "Underlined",
         priority = 110,
       },
-      -- ULGFilePathView = {
-      --   -- NEW: A rule for non-jumpable file paths, often found in quotes.
-      --   pattern = '\\v"[a-zA-Z]:[/\\][^"]*"',
-      --   hl_group = "String",
-      --   priority = 105,
-      -- },
     },
   },
 }
