@@ -4,8 +4,9 @@
 local log = require("ULG.logger")
 local view_state = require("ULG.context.view_state")
 local help_window = require("ULG.window.help")
-local event_types = require("UNL.event.types")
-local events = require("UNL.event.events")
+-- UNL.nvimのグローバルイベントシステムを使用
+local unl_events = require("UNL.event.events")
+local unl_event_types = require("UNL.event.types")
 local tail = require("ULG.core.tail")
 local filter = require("ULG.core.filter")
 
@@ -142,29 +143,26 @@ local function stop_tailing()
   local s = view_state.get_state()
   if s.watcher then
     s.watcher:stop()
-    view_state.update_state({ watcher = nil })
+    view_state.update_state({ watcher = nil, is_watching = false })
     log.get().info("Stopped tailing log file: %s", s.filepath)
+    -- Publish the global UNL event that the lualine config is listening for
+    unl_events.publish(unl_event_types.ON_AFTER_LOG_VIEWER_STOP, { filepath = s.filepath })
   end
 end
 
 -- Completely tear down the log viewer UI and state
 close_log_window = function()
   local s = view_state.get_state()
-  -- Prevent this from running twice if called manually then by BufUnload
   if not s.win then return end
 
   local was_active = s.win and true or false
   local closed_filepath = s.filepath
 
   help_window.close()
-  stop_tailing() -- Ensure watcher is stopped
+  stop_tailing()
 
   if s.win and vim.api.nvim_win_is_valid(s.win) then
     vim.api.nvim_win_close(s.win, true)
-  end
-  if s.view_buf and vim.api.nvim_buf_is_valid(s.view_buf) then
-    -- BufUnload will trigger this, so we don't want to delete it here
-    -- It will be deleted automatically upon window close
   end
   if s.master_buf and vim.api.nvim_buf_is_valid(s.master_buf) then
     vim.api.nvim_buf_delete(s.master_buf, { force = true })
@@ -173,18 +171,17 @@ close_log_window = function()
   view_state.reset_state()
 
   if was_active then
-    events.publish(event_types.VIEWER_STOPPED, { filepath = closed_filepath })
+    -- Publish the global UNL event on full close as well
+    unl_events.publish(unl_event_types.ON_AFTER_LOG_VIEWER_STOP, { filepath = closed_filepath })
   end
 end
 
 -- Create and set up the log viewer window and start tailing
 local function start_log_window(log_file_path)
-  -- If a viewer is already open, clean it up before starting a new one
   close_log_window()
 
   local conf_root = require("UNL.config").get("ULG")
   view_state.update_state(conf_root)
-  -- The original_win is managed by the global autocmd. Just set the filepath.
   view_state.update_state({ filepath = log_file_path })
 
   local s = view_state.get_state()
@@ -208,12 +205,15 @@ local function start_log_window(log_file_path)
   vim.api.nvim_win_set_buf(win, view_buf)
   view_state.update_state({ win = win })
 
-  -- Call cleanup when the viewer buffer is closed by the user
+  vim.api.nvim_set_option_value("statusline", "", { win = win })
+  vim.api.nvim_set_option_value("number", false, { win = win })
+  vim.api.nvim_set_option_value("relativenumber", false, { win = win })
+
   vim.api.nvim_create_autocmd("BufUnload", {
     buffer = view_buf,
     once = true,
     callback = function()
-      close_log_window()
+      vim.defer_fn(close_log_window, 10)
     end,
   })
 
@@ -254,10 +254,11 @@ local function start_log_window(log_file_path)
     view_state.update_state({ line_queue = current_s.line_queue })
     process_line_queue()
   end)
-  view_state.update_state({ watcher = tailer_handle })
+  view_state.update_state({ watcher = tailer_handle, is_watching = true })
 
   log.get().info("Started tailing log file: %s", log_file_path)
-  events.publish(event_types.VIEWER_STARTED, { filepath = log_file_path, bufnr = view_buf })
+  -- Publish the global UNL event that the lualine config is listening for
+  unl_events.publish(unl_event_types.ON_AFTER_LOG_VIEWER_START, { filepath = log_file_path, bufnr = view_buf })
 end
 
 -------------------
@@ -364,7 +365,6 @@ function M.jump_to_source()
   col = col or 1
 
   if filepath then
-      -- 1. Sanitize and prepare the path
       filepath = vim.trim(filepath)
       filepath = vim.fn.expand(filepath)
       local escaped_path = vim.fn.fnameescape(filepath)
@@ -373,18 +373,14 @@ function M.jump_to_source()
       col = col or "1"
       log.get().info("Jumping to: %s:%s:%s", filepath, lnum, col)
 
-      -- 2. Get the original window ID from state
       local original_win = s.original_win
 
-      -- 3. Check if the original window is still valid and switch to it
       if original_win and vim.api.nvim_win_is_valid(original_win) then
           vim.api.nvim_set_current_win(original_win)
       else
-          -- If the original window is gone, create a new vertical split
           vim.cmd("vsplit")
       end
 
-      -- 4. Open the file in the now-active window
       vim.cmd("edit +" .. lnum .. " " .. escaped_path)
       vim.api.nvim_win_set_cursor(0, { tonumber(lnum), math.max(0, tonumber(col) - 1) })
   else
@@ -414,7 +410,6 @@ M.clear_content = function()
   if s.filepath and vim.fn.filereadable(s.filepath) == 1 then
     local stat = vim.loop.fs_stat(s.filepath)
     if stat then
-      -- No need to update state, tailer will handle it
     end
   end
   refresh_view()
