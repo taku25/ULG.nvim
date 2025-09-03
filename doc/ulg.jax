@@ -1,0 +1,263 @@
+ULG.jax For ULG.nvim vim: ft=help
+
+==============================================================================
+目次 ULG-contents
+
+  1. はじめに................................... |ULG-introduction|
+  2. 使い方..................................... |ULG-usage|
+  3. コマンド................................... |ULG-commands|
+  4. キーマップ................................. |ULG-keymaps|
+  5. 設定....................................... |ULG-configuration|
+  6. セットアップ............................... |ULG-setup|
+  7. フルコンフィグ............................. |ULG-full-configuration|
+  8. 連携....................................... |ULG-integrations|
+  9. lualine.nvim............................... |ULG-lualine|
+ 10. API........................................ |ULG-api|
+ 11. ライセンス................................. |ULG-license|
+
+==============================================================================
+
+はじめに ULG-introduction
+
+ULG.nvim は、Unreal Engine のログフローを Neovim に統合するための、ログ
+ビューアプラグインです。
+
+UNL.nvim ライブラリを基盤として構築
+されており、リアルタイムでのログ追跡、強力なフィルタリング、ログからのソース
+コードへのジャンプ機能などを提供します。
+
+主な機能:
+
+リアルタイムログ追跡:
+ファイルの変更を監視し、新しいログを自動的に表示します (tail)。
+
+シンタックスハイライト:
+Error, Warning などのログレベルや、カテゴリ、タイムスタンプ、ファイル
+パスを色付けして視認性を向上させます。
+
+強力なフィルタリング:
+正規表現やログカテゴリによる動的な絞り込みが可能です。
+
+ソースコード連携:
+ログに出力されたファイルパスから、キー一発で該当箇所にジャンプします。
+
+==============================================================================
+2. 使い方 ULG-usage
+
+コマンド ULG-commands
+
+:ULG start
+現在のUnreal Engineプロジェクトのデフォルトログ
+(<Project>/Saved/Logs/<Project>.log) の追跡を開始します。
+
+:ULG start!
+ファイルピッカー (telescope.nvim or fzf-lua) を開き、追跡したいログ
+ファイルを選択します。
+
+:ULG stop
+現在のログの追跡を停止します（ログウィンドウは開いたままです）。
+
+ログウィンドウ自体を閉じるには、ウィンドウにフォーカスして :q を実行して
+ください。
+
+キーマップ ULG-keymaps
+
+ログウィンドウ内で使用可能なデフォルトのキーマップです。
+これらのキーは設定で変更可能です。|ULG-full-configuration|
+
+code
+Code
+download
+content_copy
+expand_less
+
+s         - 正規表現フィルターの入力プロンプトを開く
+<Esc>     - 全てのフィルターをクリアする
+f         - カテゴリフィルターの選択UIを開く
+t         - 全てのフィルターの有効/無効を切り替える
+i         - タイムスタンプの表示/非表示を切り替える
+<CR>      - カーソル行のログからソースコードへジャンプする
+c         - ログウィンドウの内容をクリアする
+h         - 表示されているログ内を検索（ハイライト）
+]f        - 次にフィルターされた行へジャンプ
+[f        - 前にフィルターされた行へジャンプ
+?         - ヘルプウィンドウを表示する
+
+==============================================================================
+3. 設定 ULG-configuration
+
+セットアップ ULG-setup
+
+lazy.nvimを使っている場合、optsキーに設定テーブルを渡します。
+
+例:
+
+lua
+-- lua/plugins/ulg.lua
+return {
+'taku25/ULG.nvim',
+dependencies = { 'taku25/UNL.nvim' },
+opts = {
+position = "right",
+vertical_size = 100,
+hide_timestamp = false,
+}
+}
+<
+
+利用可能なオプションの詳細は |ULG-full-configuration| を参照してください。
+
+フルコンフィグ ULG-full-configuration
+
+以下は、設定可能なすべてのオプションと、そのデフォルト値です。
+
+lua
+{
+-- ログウィンドウの表示位置: "bottom", "top", "left", "right"
+position = "bottom",
+
+-- 垂直分割時のウィンドウ幅
+vertical_size = 80,
+-- 水平分割時のウィンドウの高さ
+horizontal_size = 15,
+
+-- ウィンドウを開くコマンドを直接指定することもできます (例: "tabnew")
+win_open_command = nil,
+
+-- ログバッファに設定されるファイルタイプ
+filetype = "unreal-log",
+
+-- 新しいログが追加されたときに自動で末尾までスクロールするか
+auto_scroll = true,
+
+-- ログファイルの変更をチェックする間隔 (ミリ秒)
+polling_interval_ms = 500,
+-- 一度に描画するログの最大行数
+render_chunk_size = 500,
+
+-- タイムスタンプをデフォルトで非表示にするか
+hide_timestamp = true,
+
+-- ログウィンドウ内でのキーマップ
+keymaps = {
+filter_prompt = "s",
+filter_clear = "<Esc>",
+toggle_timestamp = "i",
+clear_content = "c",
+category_filter_prompt = "f",
+jump_to_source = "<CR>",
+filter_toggle = "t",
+search_prompt = "h",
+jump_next_match = "]f",
+jump_prev_match = "[f",
+show_help = "?",
+},
+
+-- ヘルプウィンドウの枠線
+help = {
+border = "rounded",
+},
+
+-- シンタックスハイライトの設定
+highlights = {
+enabled = true,
+groups = {
+-- ここでデフォルトのハイライトルールを上書きしたり、
+-- 新しいルールを追加したりできます。
+},
+},
+}
+<
+
+==============================================================================
+4. 連携 ULG-integrations
+
+lualine.nvim ULG-lualine
+
+lualine.nvimと連携し、ULG.nvimがログを監視しているかどうかをステータス
+ラインに表示できます。
+
+以下の設定をあなたのlualine設定に追加してください。
+
+lua
+-- lualineコンポーネントの定義
+local ulg_component = {
+function()
+local ok, view_state = pcall(require, "ULG.context.view_state")
+if not ok then return "" end
+
+code
+Code
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+local s = view_state.get_state()
+  if s and s.is_watching == true and s.filepath then
+    return "👀 ULG: " .. vim.fn.fnamemodify(s.filepath, ":t")
+  end
+  return ""
+end,
+cond = function()
+  local ok, view_state = pcall(require, "ULG.context.view_state")
+  if not ok then return false end
+  local s = view_state.get_state()
+  return s and s.is_watching == true
+end,
+
+}
+
+-- lualine設定の例
+require('lualine').setup({
+sections = {
+lualine_x = { 'diagnostics', ulg_component },
+}
+})
+<
+
+==============================================================================
+5. API ULG-api
+
+ULG.nvimは、主にコマンドを通じて操作されるように設計されています。
+自動化などの目的でLuaから操作したい場合は、vim.cmdを使用するのが最も簡単
+です。
+
+lua
+-- ログ追跡を開始
+vim.cmd('ULG start')
+
+-- ファイルピッカーを開いてログ追跡を開始
+vim.cmd('ULG start!')
+
+-- ログ追跡を停止
+vim.cmd('ULG stop')
+<
+
+==============================================================================
+6. ライセンス ULG-license
+
+MIT License
+
+Copyright (c) 2025 taku25
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl: vim:tw=78:ts=8:ft=help:norl:

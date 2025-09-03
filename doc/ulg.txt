@@ -1,0 +1,264 @@
+ULG.txt For ULG.nvim vim: ft=help
+
+==============================================================================
+CONTENTS ULG-contents
+
+  1. Introduction............................... |ULG-introduction|
+  2. Usage...................................... |ULG-usage|
+  3. Commands................................... |ULG-commands|
+  4. Keymaps.................................... |ULG-keymaps|
+  5. Configuration.............................. |ULG-configuration|
+  6. Setup...................................... |ULG-setup|
+  7. Full Configuration......................... |ULG-full-configuration|
+  8. Integrations............................... |ULG-integrations|
+  9. lualine.nvim............................... |ULG-lualine|
+ 10. API........................................ |ULG-api|
+ 11. License.................................... |ULG-license|
+
+==============================================================================
+
+Introduction ULG-introduction
+
+ULG.nvim is a log viewer plugin for integrating Unreal Engine's log flow
+into Neovim.
+
+Built upon the UNL.nvim library,
+it provides features like real-time log tailing, powerful filtering, and the
+ability to jump to source code from logs.
+
+Main Features:
+
+Real-time Log Tailing:
+Monitors file changes and automatically displays new logs (tail).
+
+Syntax Highlighting:
+Improves readability by coloring log levels like Error and Warning, as
+well as categories, timestamps, and file paths.
+
+Powerful Filtering:
+Allows dynamic filtering by regular expressions and log categories.
+
+Source Code Integration:
+Jump to the corresponding location from a file path in the log with a
+single key press.
+
+==============================================================================
+2. Usage ULG-usage
+
+Commands ULG-commands
+
+:ULG start
+Starts tailing the default log for the current Unreal Engine project
+(<Project>/Saved/Logs/<Project>.log).
+
+:ULG start!
+Opens a file picker (telescope.nvim or fzf-lua) to select a log
+file to tail.
+
+:ULG stop
+Stops tailing the current log (the log window remains open).
+
+To close the log window itself, focus it and execute :q.
+
+Keymaps ULG-keymaps
+
+These are the default keymaps available in the log window.
+These keys can be changed in the configuration. |ULG-full-configuration|
+
+code
+Code
+download
+content_copy
+expand_less
+
+s         - Open the input prompt for the regex filter
+<Esc>     - Clear all filters
+f         - Open the selection UI for category filters
+t         - Toggle all filters on/off
+i         - Toggle the visibility of timestamps
+<CR>      - Jump to the source code from the log at the cursor line
+c         - Clear the contents of the log window
+h         - Search (highlight) within the visible logs
+]f        - Jump to the next filtered line
+[f        - Jump to the previous filtered line
+?         - Show the help window
+
+==============================================================================
+3. Configuration ULG-configuration
+
+Setup ULG-setup
+
+If you are using lazy.nvim, pass your configuration table to the opts key.
+
+Example:
+
+lua
+-- lua/plugins/ulg.lua
+return {
+'taku25/ULG.nvim',
+dependencies = { 'taku25/UNL.nvim' },
+opts = {
+position = "right",
+vertical_size = 100,
+hide_timestamp = false,
+}
+}
+<
+
+For details on available options, see |ULG-full-configuration|.
+
+Full Configuration ULG-full-configuration
+
+Below are all the configurable options and their default values.
+
+lua
+{
+-- Log window position: "bottom", "top", "left", "right"
+position = "bottom",
+
+-- Window width for vertical splits
+vertical_size = 80,
+-- Window height for horizontal splits
+horizontal_size = 15,
+
+-- You can also specify a command to open the window (e.g., "tabnew")
+win_open_command = nil,
+
+-- Filetype set for the log buffer
+filetype = "unreal-log",
+
+-- Automatically scroll to the end when new logs are added
+auto_scroll = true,
+
+-- Interval to check for log file changes (in milliseconds)
+polling_interval_ms = 500,
+-- Maximum number of log lines to render at once
+render_chunk_size = 500,
+
+-- Hide timestamps by default
+hide_timestamp = true,
+
+-- Keymaps within the log window
+keymaps = {
+filter_prompt = "s",
+filter_clear = "<Esc>",
+toggle_timestamp = "i",
+clear_content = "c",
+category_filter_prompt = "f",
+jump_to_source = "<CR>",
+filter_toggle = "t",
+search_prompt = "h",
+jump_next_match = "]f",
+jump_prev_match = "[f",
+show_help = "?",
+},
+
+-- Border for the help window
+help = {
+border = "rounded",
+},
+
+-- Syntax highlighting settings
+highlights = {
+enabled = true,
+groups = {
+-- You can override default highlight rules
+-- or add new ones here.
+},
+},
+}
+<
+
+==============================================================================
+4. Integrations ULG-integrations
+
+lualine.nvim ULG-lualine
+
+You can integrate with lualine.nvim to display on the statusline whether
+ULG.nvim is monitoring a log.
+
+Add the following configuration to your lualine setup.
+
+lua
+-- Define the lualine component
+local ulg_component = {
+function()
+local ok, view_state = pcall(require, "ULG.context.view_state")
+if not ok then return "" end
+
+code
+Code
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+local s = view_state.get_state()
+  if s and s.is_watching == true and s.filepath then
+    return "👀 ULG: " .. vim.fn.fnamemodify(s.filepath, ":t")
+  end
+  return ""
+end,
+cond = function()
+  local ok, view_state = pcall(require, "ULG.context.view_state")
+  if not ok then return false end
+  local s = view_state.get_state()
+  return s and s.is_watching == true
+end,
+
+}
+
+-- Example lualine setup
+require('lualine').setup({
+sections = {
+lualine_x = { 'diagnostics', ulg_component },
+}
+})
+<
+
+==============================================================================
+5. API ULG-api
+
+ULG.nvim is primarily designed to be operated through commands.
+If you want to control it from Lua for purposes like automation, the easiest
+way is to use vim.cmd.
+
+lua
+-- Start tailing log
+vim.cmd('ULG start')
+
+-- Open file picker to start tailing log
+vim.cmd('ULG start!')
+
+-- Stop tailing log
+vim.cmd('ULG stop')
+<
+
+==============================================================================
+6. License ULG-license
+
+MIT License
+
+Copyright (c) 2025 taku25
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:==============================
+vim:tw=78:ts=8:ft=help:norl:
