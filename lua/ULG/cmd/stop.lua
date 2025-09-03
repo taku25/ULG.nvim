@@ -1,6 +1,6 @@
 -- lua/ULG/cmd/stop.lua
 
-local viewer = require("ULG.viewer")
+local viewer = require("ULG.window.log")
 local log = require("ULG.logger")
 
 local M = {}

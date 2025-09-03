@@ -24,5 +24,5 @@ return {
   "  {show_help}      Show/Hide this help window",
   "",
   "────────────────────────────────────────",
-  "Press ANY KEY to close this window.",
+  "Press q, esc, ? to close this window.",
 }
