@@ -4,7 +4,7 @@
 
 <table>
   <tr>
-    <td><div align=center><img width="100%" alt="ULG.nvim Log Viewer" src="https://raw.githubusercontent.com/taku25/ULG.nvim/main/assets/main.gif" /></div></td>
+    <td><div align=center><img width="100%" alt="ULG.nvim Log Viewer" src="https://raw.githubusercontent.com/taku25/ULG.nvim/images/assets/main.png" /></div></td>
   </tr>
 </table>
 
@@ -34,22 +34,24 @@
 *   **高いカスタマイズ性**: キーマップやハイライトグループなど、ほとんどの動作を `setup` 関数でカスタマイズできます。
 *   **ステータスライン連携**: [lualine.nvim](https://github.com/nvim-lualine/lualine.nvim) と連携し、ログ監視中であることをアイコンで表示します。(**オプション**)
 
+
 <table>
   <tr>
     <td>
       <div align=center>
-        <img width="100%" alt="Jump to source from log" src="https://raw.githubusercontent.com/taku25/ULG.nvim/main/assets/jump-to-source.gif" />
-        ログからソースへジャンプ
+        <img width="100%" alt="Jump to source from log" src="https://raw.githubusercontent.com/taku25/ULG.nvim/images/assets/jump_to_source.gif" />
+        Jump to source from log
       </div>
     </td>
     <td>
       <div align=center>
-        <img width="100%" alt="Filter by category" src="https://raw.githubusercontent.com/taku25/ULG.nvim/main/assets/filter.gif" />
-        カテゴリによるフィルタリング
+       <img width="100%" alt="Filter by category" src="https://raw.githubusercontent.com/taku25/ULG.nvim/images/assets/pick_start.gif" />
+        Filter by category
       </div>
     </td>
   </tr>
 </table>
+/table>
 
 ## 🔧 必要要件 (Requirements)
 

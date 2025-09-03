@@ -4,7 +4,7 @@
 
 <table>
   <tr>
-    <td><div align=center><img width="100%" alt="ULG.nvim Log Viewer" src="https://raw.githubusercontent.com/taku25/ULG.nvim/main/assets/main.gif" /></div></td>
+    <td><div align=center><img width="100%" alt="ULG.nvim Log Viewer" src="https://raw.githubusercontent.com/taku25/ULG.nvim/images/assets/main.png" /></div></td>
   </tr>
 </table>
 
@@ -38,13 +38,13 @@ Check out other plugins to enhance Unreal Engine development: ([`UEP.nvim`](http
   <tr>
     <td>
       <div align=center>
-        <img width="100%" alt="Jump to source from log" src="https://raw.githubusercontent.com/taku25/ULG.nvim/main/assets/jump-to-source.gif" />
+        <img width="100%" alt="Jump to source from log" src="https://raw.githubusercontent.com/taku25/ULG.nvim/images/assets/jump_to_source.gif" />
         Jump to source from log
       </div>
     </td>
     <td>
       <div align=center>
-        <img width="100%" alt="Filter by category" src="https://raw.githubusercontent.com/taku25/ULG.nvim/main/assets/filter.gif" />
+       <img width="100%" alt="Filter by category" src="https://raw.githubusercontent.com/taku25/ULG.nvim/images/assets/pick_start.gif" />
         Filter by category
       </div>
     </td>
