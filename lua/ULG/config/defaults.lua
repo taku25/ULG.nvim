@@ -35,6 +35,7 @@ local M = {
     jump_to_source = "<CR>",
     filter_toggle = "t",
     search_prompt = "p",
+    remote_command_prompt = "P",
     jump_next_match = "]f",
     jump_prev_match = "[f",
     show_help = "?",
@@ -81,6 +82,19 @@ local M = {
         hl_group = "Underlined",
         priority = 110,
       },
+    },
+  },
+
+  remote = {
+    host = "127.0.0.1",
+    port = 30010,
+    commands = {
+      "livecoding.compile",
+      "stat fps",
+      "stat unit",
+      "stat gpu",
+      "stat cpu",
+      "stat none",
     },
   },
 }

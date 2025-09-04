@@ -19,6 +19,7 @@ return {
   "  {jump_to_source}   Jump to source file location (if available)",
   "",
   "View Control:",
+  "  {remote_command_prompt}      Execute Remote Editor Command",
   "  {toggle_timestamp}      Toggle timestamp visibility",
   "  {clear_content}      Clear all log content from view",
   "  {show_help}      Show/Hide this help window",

@@ -27,6 +27,7 @@
     *   ログカテゴリによる複数選択フィルタリング。
         **リアルタイムでログのカテゴリーを収集して選択できます**
     *   全フィルターの一時的なON/OFF切り替え。
+*   **Unreal Editor連携 (リモートコマンド実行)**: ログウィンドウから直接、Live CodingのトリガーやstatコマンドなどをUnreal Editorに送信できます。(**オプション**)
 *   **ソースコード連携**: ログに出力されたファイルパス (`C:/.../File.cpp(10:20)` など) から、`<CR>` キー一発で該当箇所にジャンプします。
 *   **柔軟なUI**:
     *   ログウィンドウは垂直/水平分割で、表示位置やサイズを自由に設定可能。
@@ -57,6 +58,8 @@
 
 *   Neovim (v0.11.3 以降を推奨)
 *   **[UNL.nvim](https://github.com/taku25/UNL.nvim)** (**必須**)
+*   **Unreal Engine** の **Remote Control API** プラグイン (オプション):
+    * リモートコマンド機能を利用する場合に必ず有効にしてください。
 *   [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim) または [fzf-lua](https://github.com/ibhagwan/fzf-lua) (**推奨**)
     *   ログファイルやカテゴリ選択のUIとして利用されます。
 *   [fd](https://github.com/sharkdp/fd) (**推奨**)
@@ -126,9 +129,10 @@ return {
     toggle_timestamp = "i",       -- タイムスタンプ表示の切り替え
     clear_content = "c",          -- ログ内容のクリア
     category_filter_prompt = "f", -- カテゴリフィルターの選択
+    remote_command_prompt = "P",  -- リモートコマンドのプロンプトを開く
     jump_to_source = "<CR>",      -- ソースコードへジャンプ
     filter_toggle = "t",          -- 全フィルターの有効/無効を切り替え
-    search_prompt = "h",          -- 表示内検索 (ハイライト)
+    search_prompt = "p",          -- 表示内検索 (ハイライト)
     jump_next_match = "]f",       -- 次のフィルター行へジャンプ
     jump_prev_match = "[f",       -- 前のフィルター行へジャンプ
     show_help = "?",              -- ヘルプウィンドウの表示
@@ -159,6 +163,8 @@ return {
 :ULG start!     " ファイルピッカーを開き、追跡したいログファイルを選択します。
 :ULG stop       " 現在のログの追跡を停止します（ウィンドウは開いたままです）。
 ```
+### ログウィンドウでの操作
+* Pキー（デフォルト）: Unreal Editorに送信するリモートコマンドの入力プロンプトを開きます。プロンプトでは設定したコマンドの補完が利用できます。
 
 ログウィンドウを閉じるには、ウィンドウにフォーカスして `:q` を実行してください。
 
@@ -215,6 +221,7 @@ require('lualine').setup({
 Unreal Engine 関連プラグイン:
 *   [UEP.nvim](https://github.com/taku25/UEP.nvim) - Unreal Engine プロジェクトマネージャー
 *   [UBT.nvim](https://github.com/taku25/UBT.nvim) - Unreal Build Tool 連携
+*   [UCM.nvim](https://github.com/taku25/UBT.nvim) - Unreal Engine クラスマネージャー
 
 ## 📜 ライセンス (License)
 MIT License

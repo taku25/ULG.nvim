@@ -27,6 +27,7 @@ Check out other plugins to enhance Unreal Engine development: ([`UEP.nvim`](http
     *   Multi-select filtering by log category.
         *   **Collects and lets you select log categories in real-time.**
     *   Temporarily toggle all filters ON/OFF.
+*   **Unreal Editor Integration (Remote Command Execution)**: Send commands like Live Coding triggers and `stat` commands directly to the Unreal Editor from the log window. (**Optional**)
 *   **Source Code Integration**: Jump to the corresponding location from a file path in the log (e.g., `C:/.../File.cpp(10:20)`) with a single press of the `<CR>` key.
 *   **Flexible UI**:
     *   The log window can be split vertically or horizontally, with fully configurable position and size.
@@ -55,7 +56,10 @@ Check out other plugins to enhance Unreal Engine development: ([`UEP.nvim`](http
 
 *   Neovim (v0.11.3 or later recommended)
 *   **[UNL.nvim](https://github.com/taku25/UNL.nvim)** (**Required**)
-*   [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim) or [fzf-lua](https://github.com/ibhagwan/fzf-lua) (**Recommended**)
+*   **Unreal Engine's Remote Control API** plugin (**Optional**):
+    *   You must enable this in your Unreal project to use the remote command feature.
+*   [telescope.nvim](https:/*   **Unreal Engine's Remote Control API** plugin (**Optional**):
+    *   You must enable this in your Unreal project to use the remote command feature./github.com/nvim-telescope/telescope.nvim) or [fzf-lua](https://github.com/ibhagwan/fzf-lua) (**Recommended**)
     *   Used as a UI for selecting log files and categories.
 *   [fd](https://github.com/sharkdp/fd) (**Recommended**)
     *   Speeds up log file searching. The plugin works without it.
@@ -126,12 +130,25 @@ Below are all the available options with their default values.
     category_filter_prompt = "f", -- Select category filter
     jump_to_source = "<CR>",      -- Jump to source code
     filter_toggle = "t",          -- Toggle all filters on/off
-    search_prompt = "h",          -- Search within visible logs (highlight)
+    remote_command_prompt = "P",  -- Open the remote command prompt
+    search_prompt = "p",          -- Search within visible logs (highlight)
     jump_next_match = "]f",       -- Jump to the next filtered line
     jump_prev_match = "[f",       -- Jump to the previous filtered line
     show_help = "?",              -- Show help window
   },
 
+  remote = {
+    host = "127.0.0.1",
+    port = "30010",
+    commands = {
+      "livecoding.compile",
+      "stat fps",
+      "stat unit",
+      "stat gpu",
+      "stat cpu",
+      "stat none",
+    },
+  },
   -- Border for the help window
   help = {
     border = "rounded",
@@ -157,6 +174,9 @@ Run these commands inside an Unreal Engine project directory.
 :ULG start!     " Open a file picker to select a log file to tail.
 :ULG stop       " Stop tailing the current log (leaves the window open).
 ```
+
+### Log Window Actions
+*   `P` (by default): Opens a prompt to input a remote command to send to the Unreal Editor. Completion for configured commands is available.
 
 To close the log window, focus it and run `:q`.
 
