@@ -21,6 +21,7 @@
 ## ✨ 機能 (Features)
 
 *   **リアルタイムログ追跡**: ファイルの変更を監視し、新しいログを自動的に表示します (`tail`)。
+    **ビルドログ連携**: [`UBT.nvim`](https://github.com/taku25/UBT.nvim)とシームレスに連携し、UEログとビルドログをインテリジェントに分割されたウィンドウで同時に表示。ビルドエラーからのジャンプも可能です。
 *   **シンタックスハイライト**: `Error`, `Warning` などのログレベルや、カテゴリ、タイムスタンプ、ファイルパスを色付けして視認性を向上させます。
 *   **強力なフィルタリング**:
     *   正規表現による動的な絞り込み。
@@ -31,7 +32,10 @@
 *   **ソースコード連携**: ログに出力されたファイルパス (`C:/.../File.cpp(10:20)` など) から、`<CR>` キー一発で該当箇所にジャンプします。
 *   **柔軟なUI**:
     *   ログウィンドウは垂直/水平分割で、表示位置やサイズを自由に設定可能。
+    *   --- ★ 変更点 ★ ---
+        UEログとビルドログの親子関係（どちらを主とし、どちらを従とするか）も設定できます。
     *   タイムスタンプの表示/非表示を切り替え。
+    **自動閉鎖機能**: ログ以外の最後のウィンドウを閉じた際に、ULGのウィンドウを自動的に閉じてNeovimを終了できます。
 *   **高いカスタマイズ性**: キーマップやハイライトグループなど、ほとんどの動作を `setup` 関数でカスタマイズできます。
 *   **ステータスライン連携**: [lualine.nvim](https://github.com/nvim-lualine/lualine.nvim) と連携し、ログ監視中であることをアイコンで表示します。(**オプション**)
 
@@ -58,6 +62,7 @@
 
 *   Neovim (v0.11.3 以降を推奨)
 *   **[UNL.nvim](https://github.com/taku25/UNL.nvim)** (**必須**)
+    **[UBT.nvim](https://github.com/taku25/UBT.nvim)** (ビルドログ機能を利用する場合に**必須**)
 *   **Unreal Engine** の **Remote Control API** プラグイン (オプション):
     * リモートコマンド機能を利用する場合に必ず有効にしてください。
 *   [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim) または [fzf-lua](https://github.com/ibhagwan/fzf-lua) (**推奨**)
@@ -81,7 +86,8 @@
 return {
   'taku25/ULG.nvim',
   -- ULG.nvim は UNL.nvim に依存しています。
-  dependencies = { 'taku25/UNL.nvim' },
+  -- ビルドログ機能を使うには UBT.nvim も必要です。
+  dependencies = { 'taku25/UNL.nvim', 'taku25/UBT.nvim' },
   opts = {
     -- ここに設定を記述します (詳細は後述)
   }
@@ -97,16 +103,21 @@ return {
 -- ULG.nvim の opts = { ... } の中身
 
 {
-  -- ログウィンドウの表示位置: "bottom", "top", "left", "right"
-  position = "bottom",
+  -- UEログ (主ウィンドウ) の設定
+  position = "bottom", -- "right", "left", "bottom", "top", "tab"
+  size = 0.25,         -- 画面全体に対する高さ/幅の割合 (0.0 ~ 1.0)
 
-  -- 垂直分割時のウィンドウ幅
-  vertical_size = 80,
-  -- 水平分割時のウィンドウの高さ
-  horizontal_size = 15,
+  -- ビルドログウィンドウの設定
+  build_log_enabled = true,
+  -- ビルドログの表示位置:
+  -- "secondary": UEログに対し、空いているスペースに自動配置 (推奨)
+  -- "primary": UEログが本来表示される位置にビルドログを配置し、UEログを相対的に配置
+  -- "bottom", "top", "left", "right", "tab": 画面に対し絶対位置で指定
+  build_log_position = "secondary",
+  build_log_size = 0.4, -- "secondary" "primary"時はUEログに対する割合、絶対指定時は画面全体に対する割合
 
-  -- ウィンドウを開くコマンドを直接指定することもできます (例: "tabnew")
-  win_open_command = nil,
+  -- ログ以外の最後のバッファを閉じたら、ULGウィンドウも自動で閉じるか
+  enable_auto_close = true,
 
   -- ログバッファに設定されるファイルタイプ
   filetype = "unreal-log",
@@ -135,6 +146,7 @@ return {
     search_prompt = "p",          -- 表示内検索 (ハイライト)
     jump_next_match = "]f",       -- 次のフィルター行へジャンプ
     jump_prev_match = "[f",       -- 前のフィルター行へジャンプ
+    toggle_build_log = "b",       -- (注: このキーマップは現在ULGでは使用されません)
     show_help = "?",              -- ヘルプウィンドウの表示
   },
 
@@ -159,14 +171,15 @@ return {
 コマンドは、Unreal Engineプロジェクトのディレクトリ内で実行してください。
 
 ```vim
-:ULG start      " 現在のUnreal Engineプロジェクトのデフォルトログを追跡します。
-:ULG start!     " ファイルピッカーを開き、追跡したいログファイルを選択します。
-:ULG stop       " 現在のログの追跡を停止します（ウィンドウは開いたままです）。
+:ULG start      " UEログ (+ビルドログ) の追跡を開始します。
+:ULG start!     " ファイルピッカーを開き、追跡したいUEログファイルを選択します。
+:ULG stop       " ログの追跡を停止します（ウィンドウは開いたままです）。
+:ULG close      " 全てのログウィンドウを閉じます。
 ```
 ### ログウィンドウでの操作
 * Pキー（デフォルト）: Unreal Editorに送信するリモートコマンドの入力プロンプトを開きます。プロンプトでは設定したコマンドの補完が利用できます。
 
-ログウィンドウを閉じるには、ウィンドウにフォーカスして `:q` を実行してください。
+ログウィンドウを閉じるには、ウィンドウにフォーカスして `q` キー（デフォルト）を押すか、`:ULG close` を実行してください。
 
 ## 🤝 連携 (Integrations)
 

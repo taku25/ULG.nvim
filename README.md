@@ -8,32 +8,36 @@
   </tr>
 </table>
 
-`ULG.nvim` is a log viewer for integrating Unreal Engine's log flow into Neovim.
+`ULG.nvim` is a log viewer designed to integrate the Unreal Engine log workflow into Neovim.
 
-Built upon the [`UNL.nvim`](https://github.com/taku25/UNL.nvim) library, it provides features like real-time log tailing, powerful filtering, and the ability to jump to source code from logs.
+Built upon the [`UNL.nvim`](https://github.com/taku25/UNL.nvim) library, it provides real-time log tracking, powerful filtering, and the ability to jump from logs directly to your source code.
+It also supports a powerful multi-window feature that works with [`UBT.nvim`](https://github.com/taku25/UBT.nvim) to display Unreal Build Tool logs simultaneously.
 
-Check out other plugins to enhance Unreal Engine development: ([`UEP.nvim`](https://github.com/taku25/UEP.nvim), [`UBT.nvim`](https://github.com/taku25/UBT.nvim), [`UCM.nvim`](https://github.com/taku25/UCM.nvim)).
+This plugin is part of a suite of tools designed to enhance Unreal Engine development, including ([`UEP.nvim`](https://github.com/taku25/UEP.nvim), [`UBT.nvim`](https://github.com/taku25/UBT.nvim), [`UCM.nvim`](https://github.com/taku25/UCM.nvim)).
 
-[English](./README.md) | [日本語](./README_ja.md)
+[English](./README.md) | [日本語 (Japanese)](./README_ja.md)
 
 ---
 
 ## ✨ Features
 
 *   **Real-time Log Tailing**: Monitors file changes and automatically displays new logs (`tail`).
-*   **Syntax Highlighting**: Improves readability by coloring log levels like `Error` and `Warning`, as well as categories, timestamps, and file paths.
+*   **Build Log Integration**: Seamlessly works with [`UBT.nvim`](https://github.com/taku25/UBT.nvim) to show UE logs and build logs together in intelligently split windows. Jumping from build errors is also supported.
+*   **Syntax Highlighting**: Improves visibility by colorizing log levels like `Error` and `Warning`, as well as categories, timestamps, and file paths.
 *   **Powerful Filtering**:
     *   Dynamic filtering with regular expressions.
-    *   Multi-select filtering by log category.
-        *   **Collects and lets you select log categories in real-time.**
-    *   Temporarily toggle all filters ON/OFF.
+    *   Multi-select filtering by log category. **Categories are collected from the log in real-time.**
+    *   Toggle all filters on and off temporarily.
 *   **Unreal Editor Integration (Remote Command Execution)**: Send commands like Live Coding triggers and `stat` commands directly to the Unreal Editor from the log window. (**Optional**)
-*   **Source Code Integration**: Jump to the corresponding location from a file path in the log (e.g., `C:/.../File.cpp(10:20)`) with a single press of the `<CR>` key.
+*   **Source Code Integration**: Jump directly to the relevant source code location from a file path in the logs (e.g., `C:/.../File.cpp(10:20)`) with a single press of the `<CR>` key.
 *   **Flexible UI**:
-    *   The log window can be split vertically or horizontally, with fully configurable position and size.
+    *   Log windows can be split vertically or horizontally, with customizable positions and sizes.
+    *   Configure the parent-child relationship between the UE and build logs (i.e., which is primary and which is secondary).
     *   Toggle the visibility of timestamps.
-*   **Highly Customizable**: Customize most behaviors, such as keymaps and highlight groups, in the `setup` function.
-*   **Statusline Integration**: Integrates with [lualine.nvim](https://github.com/nvim-lualine/lualine.nvim) to display an icon indicating that log monitoring is active. (**Optional**)
+*   **Auto-Close Functionality**: Automatically close the ULG windows to quit Neovim when the last non-log window is closed.
+*   **Highly Customizable**: Almost all behaviors, including keymaps and highlight groups, can be customized via the `setup` function.
+*   **Statusline Integration**: Integrates with [lualine.nvim](https://github.com/nvim-lualine/lualine.nvim) to display an icon indicating when log monitoring is active. (**Optional**)
+
 
 <table>
   <tr>
@@ -56,23 +60,23 @@ Check out other plugins to enhance Unreal Engine development: ([`UEP.nvim`](http
 
 *   Neovim (v0.11.3 or later recommended)
 *   **[UNL.nvim](https://github.com/taku25/UNL.nvim)** (**Required**)
-*   **Unreal Engine's Remote Control API** plugin (**Optional**):
-    *   You must enable this in your Unreal project to use the remote command feature.
-*   [telescope.nvim](https:/*   **Unreal Engine's Remote Control API** plugin (**Optional**):
-    *   You must enable this in your Unreal project to use the remote command feature./github.com/nvim-telescope/telescope.nvim) or [fzf-lua](https://github.com/ibhagwan/fzf-lua) (**Recommended**)
-    *   Used as a UI for selecting log files and categories.
+*   **[UBT.nvim](https://github.com/taku25/UBT.nvim)** (**Required** for the build log feature)
+*   **Unreal Engine's Remote Control API** plugin (Optional):
+    *   Must be enabled to use the remote command feature.
+*   [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim) or [fzf-lua](https://github.com/ibhagwan/fzf-lua) (**Recommended**)
+    *   Used as the UI for selecting log files and categories.
 *   [fd](https://github.com/sharkdp/fd) (**Recommended**)
-    *   Speeds up log file searching. The plugin works without it.
+    *   Speeds up log file searching. The plugin will work without it.
 *   [lualine.nvim](https://github.com/nvim-lualine/lualine.nvim) (**Recommended**)
     *   Required for statusline integration.
 
 ## 🚀 Installation
 
-Install with your favorite plugin manager.
+Install using your preferred plugin manager.
 
 ### [lazy.nvim](https://github.com/folke/lazy.nvim)
 
-`UNL.nvim` is a required dependency. `lazy.nvim` will resolve this automatically.
+`UNL.nvim` is a mandatory dependency. `lazy.nvim` will resolve this automatically.
 
 ```lua
 -- lua/plugins/ulg.lua
@@ -80,45 +84,51 @@ Install with your favorite plugin manager.
 return {
   'taku25/ULG.nvim',
   -- ULG.nvim depends on UNL.nvim.
-  dependencies = { 'taku25/UNL.nvim' },
+  -- UBT.nvim is also required for the build log feature.
+  dependencies = { 'taku25/UNL.nvim', 'taku25/UBT.nvim' },
   opts = {
-    -- Add your settings here (details below)
+    -- Place your configuration here (see details below)
   }
 }
 ```
 
 ## ⚙️ Configuration
 
-You can customize the plugin's behavior by passing a table to the `setup()` function (or to `opts` in `lazy.nvim`).
-Below are all the available options with their default values.
+You can customize the plugin's behavior by passing a table to the `setup()` function (or the `opts` table in `lazy.nvim`).
+The following shows all available options with their default values.
 
 ```lua
--- Inside opts = { ... } for ULG.nvim
+-- Inside the opts = { ... } table for ULG.nvim
 
 {
-  -- Log window position: "bottom", "top", "left", "right"
-  position = "bottom",
+  -- UE Log (Primary Window) Settings
+  position = "bottom", -- "right", "left", "bottom", "top", "tab"
+  size = 0.25,         -- Height/width ratio relative to the screen (0.0 to 1.0)
 
-  -- Window width for vertical splits
-  vertical_size = 80,
-  -- Window height for horizontal splits
-  horizontal_size = 15,
+  -- Build Log Window Settings
+  build_log_enabled = true,
+  -- Position of the build log:
+  -- "secondary": Auto-positions relative to the UE log in available space (Recommended)
+  -- "primary": Places the build log where the UE log would be, and positions the UE log relatively
+  -- "bottom", "top", "left", "right", "tab": Specifies an absolute position on the screen
+  build_log_position = "secondary",
+  build_log_size = 0.4, -- Ratio relative to the UE log (for secondary/primary) or the screen (for absolute)
 
-  -- You can also specify a command to open the window (e.g., "tabnew")
-  win_open_command = nil,
+  -- Whether to auto-close ULG windows when the last non-log buffer is closed
+  enable_auto_close = true,
 
   -- Filetype set for the log buffer
   filetype = "unreal-log",
 
-  -- Automatically scroll to the end when new logs are added
+  -- Whether to automatically scroll to the end when new logs are added
   auto_scroll = true,
 
   -- Interval to check for log file changes (in milliseconds)
   polling_interval_ms = 500,
-  -- Maximum number of log lines to render at once
+  -- Maximum number of lines to render at once
   render_chunk_size = 500,
 
-  -- Hide timestamps by default
+  -- Whether to hide timestamps by default
   hide_timestamp = true,
 
   -- Keymaps within the log window
@@ -128,27 +138,16 @@ Below are all the available options with their default values.
     toggle_timestamp = "i",       -- Toggle timestamp visibility
     clear_content = "c",          -- Clear log content
     category_filter_prompt = "f", -- Select category filter
+    remote_command_prompt = "P",  -- Open prompt for remote command
     jump_to_source = "<CR>",      -- Jump to source code
     filter_toggle = "t",          -- Toggle all filters on/off
-    remote_command_prompt = "P",  -- Open the remote command prompt
-    search_prompt = "p",          -- Search within visible logs (highlight)
-    jump_next_match = "]f",       -- Jump to the next filtered line
-    jump_prev_match = "[f",       -- Jump to the previous filtered line
-    show_help = "?",              -- Show help window
+    search_prompt = "p",          -- Search (highlight) within the view
+    jump_next_match = "]f",       -- Jump to next filtered line
+    jump_prev_match = "[f",       -- Jump to previous filtered line
+    toggle_build_log = "b",       -- (Note: This keymap is not currently used by ULG)
+    show_help = "?",              -- Show the help window
   },
 
-  remote = {
-    host = "127.0.0.1",
-    port = "30010",
-    commands = {
-      "livecoding.compile",
-      "stat fps",
-      "stat unit",
-      "stat gpu",
-      "stat cpu",
-      "stat none",
-    },
-  },
   -- Border for the help window
   help = {
     border = "rounded",
@@ -158,8 +157,8 @@ Below are all the available options with their default values.
   highlights = {
     enabled = true,
     groups = {
-      -- You can override default highlight rules
-      -- or add new ones here.
+      -- You can override default highlight rules or
+      -- add new ones here.
     },
   },
 }
@@ -167,24 +166,24 @@ Below are all the available options with their default values.
 
 ## ⚡ Usage
 
-Run these commands inside an Unreal Engine project directory.
+Commands should be run from within your Unreal Engine project directory.
 
 ```vim
-:ULG start      " Start tailing the default log for the current Unreal Engine project.
+:ULG start      " Start tailing the default log for the current UE project (+ build log).
 :ULG start!     " Open a file picker to select a log file to tail.
-:ULG stop       " Stop tailing the current log (leaves the window open).
+:ULG stop       " Stop tailing log files (leaves the windows open).
+:ULG close      " Close all log viewer windows.
 ```
+### In the Log Window
+*   `P` key (default): Opens an input prompt to send a remote command to the Unreal Editor. Completion for configured commands is available.
 
-### Log Window Actions
-*   `P` (by default): Opens a prompt to input a remote command to send to the Unreal Editor. Completion for configured commands is available.
-
-To close the log window, focus it and run `:q`.
+To close the log window, focus it and press the `q` key (default) or run `:ULG close`.
 
 ## 🤝 Integrations
 
 ### lualine.nvim
 
-Integrate with [lualine.nvim](https://github.com/nvim-lualine/lualine.nvim) to show on the statusline whether `ULG.nvim` is monitoring a log.
+Integrates with [lualine.nvim](https://github.com/nvim-lualine/lualine.nvim) to show the log-watching status in your statusline.
 
 <div align=center><img width="60%" alt="lualine integration" src="https://raw.githubusercontent.com/taku25/ULG.nvim/main/assets/lualine.png" /></div>
 
@@ -206,7 +205,7 @@ local ulg_component = {
     end
     return ""
   end,
-  -- 2. A `cond` (condition) function that determines if the component should be displayed
+  -- 2. A 'cond' (condition) function that determines if the component should be shown
   cond = function()
     local ok, view_state = pcall(require, "ULG.context.view_state")
     if not ok then return false end
@@ -230,9 +229,10 @@ require('lualine').setup({
 
 ## Other
 
-Unreal Engine related plugins:
+Related Unreal Engine Plugins:
 *   [UEP.nvim](https://github.com/taku25/UEP.nvim) - Unreal Engine Project Manager
 *   [UBT.nvim](https://github.com/taku25/UBT.nvim) - Unreal Build Tool Integration
+*   [UCM.nvim](https://github.com/taku25/UCM.nvim) - Unreal Engine Class Manager
 
 ## 📜 License
 MIT License
