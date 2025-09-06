@@ -16,8 +16,13 @@ builder.create({
     --- ★★★ このサブコマンドを追加 ★★★
     ["stop"] = {
       handler = function() api.stop() end,
-      desc = "Stop tailing and close the log viewer window.",
-      args = {}, -- 引数は不要
+      desc = "Stop tailing log files, but keep windows open.",
+      args = {},
+    },
+    ["close"] = {
+      handler = function() api.close() end,
+      desc = "Stop tailing and close all log viewer windows.",
+      args = {},
     },
   },
 })

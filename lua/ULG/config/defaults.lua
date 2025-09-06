@@ -14,18 +14,28 @@ local M = {
     },
   },
 
-  -- viewerテーブルをトップレベルに展開
-  position = "bottom", -- "right", "left", "bottom", "top", "tab"
   vertical_size = 80,
   horizontal_size = 15,
   win_open_command = nil,
   filetype = "unreal-log",
   auto_scroll = true,
 
+  -- ★ UEログ (Primary) の配置設定
+  position = "bottom", -- "right", "left", "bottom", "top", "tab"
+  size = 0.25, -- 画面全体に対する高さ/幅の割合 (0.0 ~ 1.0)
+
+  -- ★ ビルドログ (Secondary) の配置設定
+  build_log_enabled = true,
+  -- "primary", "secondary",  (相対指定)
+  -- または "bottom", "top", "left", "right", "tab" (絶対指定) が可能
+  build_log_position = "secondary", 
+  build_log_size = 0.4, -- ue_logウィンドウ(相対)または画面全体(絶対)に対する割合
+
   polling_interval_ms = 500,
   render_chunk_size = 500,
   hide_timestamp = true,
 
+  enable_auto_close = true,
   keymaps = {
     filter_prompt = "s",
     filter_clear = "<Esc>",
@@ -38,6 +48,7 @@ local M = {
     remote_command_prompt = "P",
     jump_next_match = "]f",
     jump_prev_match = "[f",
+    toggle_build_log = "b",
     show_help = "?",
   },
 
@@ -96,6 +107,13 @@ local M = {
       "stat cpu",
       "stat none",
     },
+  },
+
+  profiling = {
+    -- .utrace ファイルを検索する追加のディレクトリをここに指定します。
+    -- 絶対パスでの指定を推奨します。
+    -- 例: additional_search_dirs = { "D:/UE_Traces", "/mnt/shared/profiling" }
+    additional_search_dirs = {},
   },
 }
 
