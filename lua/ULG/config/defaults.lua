@@ -1,4 +1,7 @@
+-- lua/ULG/config/defaults.lua (general logに対応した最終版)
+
 local M = {
+  -- (ロギング、キャッシュ、UI設定は変更ありません)
   logging = {
     level = "info",
     echo = { level = "warn" },
@@ -14,28 +17,31 @@ local M = {
     },
   },
 
-  vertical_size = 80,
-  horizontal_size = 15,
-  win_open_command = nil,
+
+  -- UEログ (主ウィンドウ) の設定
+  position = "bottom", -- "right", "left", "bottom", "top", "tab"
+  size = 0.25,         -- 画面全体に対する高さ/幅の割合 (0.0 ~ 1.0)
+
+  -- 汎用ログ (General Log) ウィンドウの設定
+  general_log_enabled = true,
+  -- 汎用ログの表示位置:
+  -- "secondary": UEログに対し、空いているスペースに自動配置 (推奨)
+  -- "primary": UEログが本来表示される位置に汎用ログを配置し、UEログを相対的に配置
+  -- "bottom", "top", "left", "right", "tab": 画面に対し絶対位置で指定
+  general_log_position = "secondary", 
+  general_log_size = 0.4, -- "secondary" "primary"時はUEログに対する割合、絶対指定時は画面全体に対する割合
+
+  -- ログ以外の最後のウィンドウを閉じたら、ULGウィンドウも自動で閉じるか
+  enable_auto_close = true,
+
+
+  -- (以降の設定は変更ありません)
   filetype = "unreal-log",
   auto_scroll = true,
-
-  -- ★ UEログ (Primary) の配置設定
-  position = "bottom", -- "right", "left", "bottom", "top", "tab"
-  size = 0.25, -- 画面全体に対する高さ/幅の割合 (0.0 ~ 1.0)
-
-  -- ★ ビルドログ (Secondary) の配置設定
-  build_log_enabled = true,
-  -- "primary", "secondary",  (相対指定)
-  -- または "bottom", "top", "left", "right", "tab" (絶対指定) が可能
-  build_log_position = "secondary", 
-  build_log_size = 0.4, -- ue_logウィンドウ(相対)または画面全体(絶対)に対する割合
-
   polling_interval_ms = 500,
   render_chunk_size = 500,
   hide_timestamp = true,
 
-  enable_auto_close = true,
   keymaps = {
     filter_prompt = "s",
     filter_clear = "<Esc>",
@@ -48,15 +54,13 @@ local M = {
     remote_command_prompt = "P",
     jump_next_match = "]f",
     jump_prev_match = "[f",
-    toggle_build_log = "b",
+    toggle_build_log = "b", -- (このキーマップは将来的に general_log の toggle になる可能性がある)
     show_help = "?",
   },
 
-  category_filters = {},
   help = {
     border = "rounded",
   },
-
 
   highlights = {
     enabled = true,
@@ -82,13 +86,11 @@ local M = {
         priority = 22,
       },
       ULGCategory = {
-        -- MODIFIED: Require at least two characters to avoid matching drive letters like "C:"
         pattern = [[\v[a-zA-Z][a-zA-Z0-9_]+:]],
         hl_group = "Identifier",
         priority = 100,
       },
       ULGFilePath = {
-        -- This rule is for JUMPABLE file paths with line and column numbers.
         pattern = [[\v(\~|[A-Z]:)[\/\\][^()\[\]\r\n]+\.\w+]] ,
         hl_group = "Underlined",
         priority = 110,
@@ -110,9 +112,6 @@ local M = {
   },
 
   profiling = {
-    -- .utrace ファイルを検索する追加のディレクトリをここに指定します。
-    -- 絶対パスでの指定を推奨します。
-    -- 例: additional_search_dirs = { "D:/UE_Traces", "/mnt/shared/profiling" }
     additional_search_dirs = {},
   },
 }

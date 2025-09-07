@@ -24,5 +24,11 @@ builder.create({
       desc = "Stop tailing and close all log viewer windows.",
       args = {},
     },
+    ["trace"] = {
+      handler = function(opts) api.trace(opts) end,
+      desc = "Analyze a .utrace file. Use 'trace!' to open the file picker directly.",
+      bang = true, -- ! を受け付ける
+      args = {},
+    },
   },
 })
