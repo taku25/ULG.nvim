@@ -43,19 +43,36 @@ local M = {
   hide_timestamp = true,
 
   keymaps = {
-    filter_prompt = "s",
-    filter_clear = "<Esc>",
-    toggle_timestamp = "i",
-    clear_content = "c",
-    category_filter_prompt = "f",
-    jump_to_source = "<CR>",
-    filter_toggle = "t",
-    search_prompt = "p",
-    remote_command_prompt = "P",
-    jump_next_match = "]f",
-    jump_prev_match = "[f",
-    toggle_build_log = "b", -- (このキーマップは将来的に general_log の toggle になる可能性がある)
-    show_help = "?",
+    log = {
+      filter_prompt = "s",
+      filter_clear = "<Esc>",
+      toggle_timestamp = "i",
+      clear_content = "c",
+      category_filter_prompt = "f",
+      jump_to_source = "<CR>",
+      filter_toggle = "t",
+      search_prompt = "p",
+      remote_command_prompt = "P",
+      jump_next_match = "]f",
+      jump_prev_match = "[f",
+      toggle_build_log = "b", -- (このキーマップは将来的に general_log の toggle になる可能性がある)
+      show_help = "?",
+    },
+        -- トレースサマリービューワー用のキーマップ
+    trace = {
+      show_details = "f",          -- フレーム詳細をフローティングウィンドウで表示
+      scroll_right_page = "L",     -- 1ページ右へスクロール
+      scroll_left_page = "H",      -- 1ページ左へスクロール
+      scroll_right = "l",          -- 1フレーム右へ
+      scroll_left = "h",           -- 1フレーム左へ
+      toggle_scale_mode = "m",     -- スパークラインのスケールモードを切り替え
+      next_spike = "]",            -- 次のスパイクへジャンプ
+      prev_spike = "[",            -- 前のスパイクへジャンプ
+      first_spike = "g[",          -- 最初のスパイクへジャンプ
+      last_spike = "g]",           -- 最後のスパイクへジャンプ
+      first_frame = "gg",          -- 最初のフレームへジャンプ
+      last_frame = "G",            -- 最後のフレームへジャンプ
+    },
   },
 
   help = {
@@ -96,6 +113,20 @@ local M = {
         priority = 110,
       },
     },
+    trace_sparkline = {
+      -- スパークラインの各ブロック（高さ）に対応するハイライトグループを定義。
+      -- 1番目が一番低いブロック（パフォーマンスが良い）、8番目が一番高いブロック。
+      groups = {
+        "Comment",       --  
+        "Comment",       -- ▂
+        "DiagnosticInfo",-- ▃ (青系)
+        "DiagnosticOk",  -- ▄ (緑系)
+        "DiagnosticWarn",-- ▅ (黄系)
+        "DiagnosticWarn",-- ▆
+        "ErrorMsg",      -- ▇ (赤系)
+        "ErrorMsg",      -- ▇
+      }
+    }
   },
 
   remote = {

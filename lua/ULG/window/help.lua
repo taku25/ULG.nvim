@@ -31,7 +31,7 @@ function M.open()
   for _, line in ipairs(help_lines_template) do
     table.insert(
       final_help_lines,
-      (line:gsub("{([%w_]+)}", function(key) return (conf.keymaps and conf.keymaps[key]) or "N/A" end))
+      (line:gsub("{([%w_]+)}", function(key) return (conf.keymaps and conf.keymaps.log[key]) or "N/A" end))
     )
   end
 

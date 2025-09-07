@@ -124,86 +124,146 @@ end
 -- @param utrace_filepath string 元となった.utraceファイルのパス
 -- @param loaded_maps table {timers, threads} 事前にパースしたIDと情報のマップ
 -- @param progress_handle table プログレスバーのハンドル
-local function process_stream_data_async(utrace_filepath, loaded_maps, progress_handle)
+---
+-- TimingEvents.csvをストリーム処理して階層化データを構築・チャンク保存する
+local function process_stream_data_async(utrace_filepath, loaded_maps, progress_handle, on_complete_callback)
   local trace_dir = trace_cache.get_trace_cache_dir(utrace_filepath)
   local events_csv_path = path.join(trace_dir, "TimingEvents.csv")
 
+  -- ★★★ 修正点1: ファイルサイズを事前に取得 ★★★
+  local total_size = 0
+  local stat = vim.loop.fs_stat(events_csv_path)
+  if stat then
+    total_size = stat.size
+  end
+
+  local function is_finite(n)
+    return n == n and n ~= 1/0 and n ~= -1/0
+  end
+
   local worker = coroutine.create(function()
     local thread_states = {}
+    local CHUNK_SIZE_LIMIT_BYTES = 15 * 1024 * 1024
+
+    local function write_chunk_to_disk(state, thread_id)
+        if #state.current_chunk_events == 0 then return end
+        local chunk_filename = string.format("chunk_thread_%d_%d.json", thread_id, state.chunk_index)
+        local chunk_path = path.join(trace_dir, chunk_filename)
+        unl_cache_core.save_json(chunk_path, state.current_chunk_events)
+        table.insert(state.chunk_file_list, chunk_filename)
+        state.chunk_index = state.chunk_index + 1
+        state.current_chunk_events = {}
+        state.current_chunk_size_bytes = 0
+    end
+
     local line_count = 0
     progress_handle:stage_define("processing", 1)
     progress_handle:stage_update("processing", 0, "Processing events...")
 
-    for line in io.lines(events_csv_path) do
+    -- ★★★ 修正点2: io.linesではなく、ファイルハンドルを使ってループする ★★★
+    local file = io.open(events_csv_path, "r")
+    if not file then
+        log.get().error("Could not open TimingEvents.csv for processing: %s", events_csv_path)
+        progress_handle:finish(false)
+        return
+    end
+
+    for line in file:lines() do
       line_count = line_count + 1
-      local thread_id_str, timer_id_str, start_time, end_time, depth_str = line:match('^([^,]+),([^,]+),([^,]+),([^,]+),([^,]+)$')
+      local thread_id_str, timer_id_str, start_time_str, end_time_str, depth_str = line:match('^([^,]+),([^,]+),([^,]+),([^,]+),([^,]+)$')
 
       if timer_id_str and timer_id_str ~= "TimerId" then
+        local start_time = tonumber(start_time_str)
+        local end_time = tonumber(end_time_str)
+        if not is_finite(start_time) then start_time = 0.0 end
+        if not is_finite(end_time) then end_time = start_time end
+
+        -- ★★★ ここからが修正箇所です ★★★
+        local duration = end_time - start_time
+        -- 非常に小さい値や0を対数に入れると-infになるのを防ぐため、微小な値を加える
+        local log_duration = math.log(math.max(1e-9, duration))
+
+        local event = {
+          tid = tonumber(timer_id_str),
+          s = start_time,
+          e = end_time,
+          ldur = log_duration, -- 対数持続時間をキャッシュに含める
+          children = {}
+        }
+        -- ★★★ 修正箇所ここまで ★★★
         local thread_id = tonumber(thread_id_str)
         local depth = tonumber(depth_str)
 
         if not thread_states[thread_id] then
           thread_states[thread_id] = {
-            event_stack = {},
-            top_level_events = {},
+            event_stack = {}, current_chunk_events = {}, current_chunk_size_bytes = 0,
+            chunk_index = 0, chunk_file_list = {},
           }
         end
         local state = thread_states[thread_id]
-
-        local event = {
-          tid = tonumber(timer_id_str),
-          s = tonumber(start_time),
-          e = tonumber(end_time),
-          children = {}
-        }
 
         while #state.event_stack > depth do
           table.remove(state.event_stack)
         end
 
         if #state.event_stack > 0 then
-          local parent = state.event_stack[#state.event_stack]
-          table.insert(parent.children, event)
+          table.insert(state.event_stack[#state.event_stack].children, event)
         else
-          table.insert(state.top_level_events, event)
+          if state.current_chunk_size_bytes > CHUNK_SIZE_LIMIT_BYTES then
+            write_chunk_to_disk(state, thread_id)
+          end
+          table.insert(state.current_chunk_events, event)
+          local ok, encoded = pcall(vim.json.encode, event)
+          if ok then
+            state.current_chunk_size_bytes = state.current_chunk_size_bytes + #encoded
+          end
         end
-
         table.insert(state.event_stack, event)
       end
 
-      if line_count % 10000 == 0 then
-        progress_handle:stage_update("processing", 0.5, string.format("Processing events... (line %d)", line_count))
+      -- ★★★ 修正点3: 固定値ではなく、計算した進捗率を渡す ★★★
+      if line_count % 5000 == 0 then -- 更新頻度を少し調整
+        local progress = 0.0
+        if total_size > 0 then
+          -- file:seek("cur") で現在のバイト位置を取得
+          progress = file:seek("cur") / total_size
+        end
+        progress_handle:stage_update("processing", progress, string.format("Processing... (%d%%)", math.floor(progress * 100)))
         coroutine.yield()
       end
     end
+    
+    file:close() -- ★★★ 修正点4: ファイルハンドルを閉じる ★★★
+
     progress_handle:stage_update("processing", 1, "Finished processing events.")
 
-    progress_handle:stage_define("saving", vim.tbl_count(thread_states))
-    progress_handle:stage_update("saving", 0, "Saving cache files...")
-
-    local trace_data_metadata = {}
-    local saved_count = 0
     for thread_id, state in pairs(thread_states) do
-      if #state.top_level_events > 0 then
-        local thread_data_path = path.join(trace_dir, string.format("trace_data_thread_%s.json", thread_id))
-        unl_cache_core.save_json(thread_data_path, state.top_level_events)
-        trace_data_metadata[tostring(thread_id)] = {}
-      end
-      saved_count = saved_count + 1
-      progress_handle:stage_update("saving", saved_count, string.format("Saving cache for thread %d", thread_id))
-      coroutine.yield()
+      write_chunk_to_disk(state, thread_id)
     end
 
+    progress_handle:stage_define("saving", 1)
+    progress_handle:stage_update("saving", 0, "Saving metadata...")
+    local trace_data_metadata = {}
+    for thread_id, state in pairs(thread_states) do
+      if #state.chunk_file_list > 0 then
+        trace_data_metadata[tostring(thread_id)] = { chunks = state.chunk_file_list }
+      end
+    end
     local final_metadata = {
       timers = loaded_maps.timers,
       threads = loaded_maps.threads,
       trace_data = trace_data_metadata,
     }
+    -- ★★★ メタデータ保存後の処理 ★★★
     trace_cache.save_metadata(utrace_filepath, final_metadata)
-
+    progress_handle:stage_update("saving", 1, "Metadata saved.")
     log.get().info("Successfully saved trace cache for %s", utrace_filepath)
     vim.notify("Trace analysis complete and cached successfully!")
-    progress_handle:stage_update("saving", saved_count, "Cache saved.")
+
+    -- ★★★ 完了コールバックを呼び出す ★★★
+    if on_complete_callback then
+      on_complete_callback(true)
+    end
   end)
 
   local function resume_worker()
@@ -224,11 +284,13 @@ local function process_stream_data_async(utrace_filepath, loaded_maps, progress_
   coroutine.resume(worker)
   if coroutine.status(worker) == "suspended" then vim.defer_fn(resume_worker, 1) end
 end
-
 --- UnrealInsights.exe を非同期で実行してCSV群を生成する
-local function run_insights(utrace_filepath)
+local function run_insights(utrace_filepath, on_complete)
   local export_dir = trace_cache.get_trace_cache_dir(utrace_filepath)
-  if not export_dir then return end
+  if not export_dir then
+    on_complete(false)
+    return
+  end
   vim.fn.mkdir(export_dir, "p")
   local timers_csv_path = path.join(export_dir, "Timers.csv")
   local events_csv_path = path.join(export_dir, "TimingEvents.csv")
@@ -247,7 +309,7 @@ local function run_insights(utrace_filepath)
   local conf = require("UNL.config").get("ULG")
   local progress_handle, provider_name =unl_progress.create_for_refresh(conf, {
     title = "ULG Trace Analysis", client_name = "ULG",
-    weights = { insights = 0.40, load_csv = 0.10, processing = 0.40, saving = 0.10, },
+    weights = { insights = 0.20, load_csv = 0.15, processing = 0.45, saving = 0.20, },
   })
   progress_handle:stage_define("insights", 1)
   progress_handle:stage_define("load_csv", 1)
@@ -263,6 +325,7 @@ local function run_insights(utrace_filepath)
   local insights_exe, err = unl_api.find_insights(project_root)
   if not insights_exe then
     progress_handle:stop(false)
+    on_complete(false)
     return log.get().error("Could not find UnrealInsights.exe. Error: %s", tostring(err))
   end
   local final_command
@@ -285,26 +348,55 @@ local function run_insights(utrace_filepath)
   vim.fn.jobstart(final_command, {
     on_exit = function(_, exit_code)
       vim.schedule(function()
-        if general_log_view.is_open and general_log_view.is_open() then
-          general_log_view.set_title("[[ General Log ]]")
-        end
-
+        if general_log_view.is_open and general_log_view.is_open() then general_log_view.set_title("[[ General Log ]]") end
         if exit_code == 0 then
           progress_handle:stage_update("insights", 1, "UnrealInsights finished.")
-
           progress_handle:stage_update("load_csv", 0, "Loading Timers/Threads CSV...")
           local timer_info, thread_info = load_small_csvs(export_dir)
           progress_handle:stage_update("load_csv", 1, "CSV files loaded.")
-
-          process_stream_data_async(utrace_filepath, { timers = timer_info, threads = thread_info }, progress_handle)
-
+          
+          -- ★★★ process_stream_data_async に on_complete をそのまま渡す ★★★
+          process_stream_data_async(
+            utrace_filepath,
+            { timers = timer_info, threads = thread_info },
+            progress_handle,
+            on_complete
+          )
         else
           log.get().error("UnrealInsights failed with exit code: %s", exit_code)
           progress_handle:finish(false)
+          -- ★★★ 失敗した場合もコールバックを呼ぶ ★★★
+          on_complete(false)
         end
       end)
     end,
   })
+end
+
+local function process_selected_utrace(utrace_filepath)
+  if not utrace_filepath then return end
+
+  -- ★★★ ご提案の美しいロジック ★★★
+  local trace_handle = trace_cache.load(utrace_filepath)
+  if trace_handle then
+    log.get().info("Found valid trace cache for %s, opening summary.", utrace_filepath)
+    require("ULG.buf.log.trace_summary").open(trace_handle)
+  else
+    log.get().info("No cache found for %s. Starting new analysis.", utrace_filepath)
+    run_insights(utrace_filepath, function(is_success)
+      if is_success then
+        -- キャッシュ作成が成功したので、再度loadしてUIを開く
+        local new_trace_handle = trace_cache.load(utrace_filepath)
+        if new_trace_handle then
+          require("ULG.buf.log.trace_summary").open(new_trace_handle)
+        else
+          log.get().error("Cache was created but failed to load. Please check logs.")
+        end
+      else
+        log.get().error("Trace analysis failed. Summary window will not be opened.")
+      end
+    end)
+  end
 end
 
 
@@ -312,26 +404,6 @@ end
 -- Command Logic (:ULG trace)
 --------------------------------------------------------------------------------
 
-local function process_selected_utrace(utrace_filepath)
-  if not utrace_filepath then return end
-
-  local trace_handle = trace_cache.load(utrace_filepath)
-  if trace_handle then
-    log.get().info("Found valid trace cache for %s", utrace_filepath)
-    vim.notify("Trace cache loaded successfully!")
-    -- TODO: ここで、ハンドルを使ってデータを表示する関数を呼ぶ
-    -- 例:
-    -- local game_thread_data = trace_handle:get_thread_events("GameThread")
-    -- if game_thread_data then
-    --   -- ここでデータを表示するUIロジックを呼び出す
-    --   require("ULG.ui.trace_viewer").display(game_thread_data)
-    -- end
-    return
-  end
-
-  log.get().info("No cache found for %s. Starting new analysis.", utrace_filepath)
-  run_insights(utrace_filepath)
-end
 
 -- (open_trace_picker と M.execute は変更なし)
 local function open_trace_picker()

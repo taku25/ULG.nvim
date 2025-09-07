@@ -141,14 +141,14 @@ function M.create_spec(conf)
     remote_command_prompt = "prompt_remote_command", jump_next_match = "jump_next",
     jump_prev_match = "jump_prev", show_help = "show_help",
   }
-  for name, key in pairs(conf.keymaps or {}) do
+  for name, key in pairs(conf.keymaps.log or {}) do
     local func_name = keymap_name_to_func[name]
     if func_name and key then
       keymaps[key] = string.format("<cmd>lua require('ULG.buf.log.ue').%s()<cr>", func_name)
     end
   end
-  if conf.build_log_enabled and conf.keymaps.toggle_build_log then
-    keymaps[conf.keymaps.toggle_build_log] = "<cmd>lua require('ULG.buf.log.build').toggle()<cr>"
+  if conf.build_log_enabled and conf.keymaps.log.toggle_build_log then
+    keymaps[conf.keymaps.log.toggle_build_log] = "<cmd>lua require('ULG.buf.log.build').toggle()<cr>"
   end
   return {
     id = "ue_log",
