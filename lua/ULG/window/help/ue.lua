@@ -28,7 +28,7 @@ function M.open()
 
   local conf = unl_config.get("ULG")
   local final_help_lines = {}
-  for _, line in ipairs(help_lines_template) do
+  for _, line in ipairs(help_lines_template.ue) do
     table.insert(
       final_help_lines,
       (line:gsub("{([%w_]+)}", function(key) return (conf.keymaps and conf.keymaps.log[key]) or "N/A" end))

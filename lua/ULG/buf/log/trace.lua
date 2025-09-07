@@ -180,7 +180,7 @@ function M.open(trace_handle)
   local conf = require("UNL.config").get("ULG")
   local trace_keymaps = conf.keymaps.trace or {}
   local final_keymaps = {
-    q = "<cmd>lua require('ULG.buf.log.trace_summary').close()<cr>",
+    q = "<cmd>lua require('ULG.buf.log.trace').close()<cr>",
   }
 
   local function find_next_spike(start_index)
@@ -212,6 +212,11 @@ function M.open(trace_handle)
     end
     return result
   end
+
+  M.callbacks.show_help = function()
+      require("ULG.window.help.trace").toggle()
+  end
+
 
   M.callbacks.next_spike = function()
     local win = state.handle:get_win_id()
@@ -285,14 +290,14 @@ function M.open(trace_handle)
 
   for action, key in pairs(trace_keymaps) do
     if key and key ~= "" and M.callbacks[action] then
-      final_keymaps[key] = string.format("<cmd>lua require('ULG.buf.log.trace_summary').callbacks.%s()<cr>", action)
+      final_keymaps[key] = string.format("<cmd>lua require('ULG.buf.log.trace').callbacks.%s()<cr>", action)
     end
   end
 
   local spec = {
-    id = "ulg_trace_summary",
-    title = "[[ ULG Trace Summary ]]",
-    filetype = "ulg-trace-summary",
+    id = "ulg_trace",
+    title = "[[ ULG Trace ]]",
+    filetype = "ulg-trace",
     auto_scroll = false,
     keymaps = final_keymaps
   }

@@ -75,6 +75,7 @@ local M = {
       last_spike = "g]",           -- 最後のスパイクへジャンプ
       first_frame = "gg",          -- 最初のフレームへジャンプ
       last_frame = "G",            -- 最後のフレームへジャンプ
+      show_help = "?", -- ★ この行を追加
     },
   },
 

@@ -2,7 +2,7 @@
 
 local unl_picker = require("UNL.backend.picker")
 local view_state = require("ULG.context.view_state")
-local help_window = require("ULG.window.help")
+local help_window = require("ULG.window.help.ue")
 local unl_api = require("UNL.api")
 local tail = require("ULG.core.tail")
 local filter = require("ULG.core.filter")

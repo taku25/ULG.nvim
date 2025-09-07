@@ -380,7 +380,7 @@ local function process_selected_utrace(utrace_filepath)
   local trace_handle = trace_cache.load(utrace_filepath)
   if trace_handle then
     log.get().info("Found valid trace cache for %s, opening summary.", utrace_filepath)
-    require("ULG.buf.log.trace_summary").open(trace_handle)
+    require("ULG.buf.log.trace").open(trace_handle)
   else
     log.get().info("No cache found for %s. Starting new analysis.", utrace_filepath)
     run_insights(utrace_filepath, function(is_success)
@@ -388,7 +388,7 @@ local function process_selected_utrace(utrace_filepath)
         -- キャッシュ作成が成功したので、再度loadしてUIを開く
         local new_trace_handle = trace_cache.load(utrace_filepath)
         if new_trace_handle then
-          require("ULG.buf.log.trace_summary").open(new_trace_handle)
+          require("ULG.buf.log.trace").open(new_trace_handle)
         else
           log.get().error("Cache was created but failed to load. Please check logs.")
         end
