@@ -42,6 +42,9 @@ local M = {
   render_chunk_size = 500,
   hide_timestamp = true,
 
+ -- spark_chars = { " ", "▂", "▃", "▄", "▅", "▆", "▇" },
+ spark_chars = { " ", "▂", "▃", "▄", "▅", "▆", "▇" },
+
   keymaps = {
     log = {
       filter_prompt = "s",
