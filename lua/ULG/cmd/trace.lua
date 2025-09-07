@@ -15,6 +15,66 @@ local M = {}
 -- Helper Functions (Private)
 --------------------------------------------------------------------------------
 
+
+--- [FIX] Timers.csvの行を堅牢に解析するヘルパー関数
+-- Nameフィールドが引用符で囲まれている場合と、そうでない場合の両方に対応する
+local function parse_timer_line(line)
+  if not line or line == "" then return nil end
+
+  local id, type, name, file, line_num
+  local current_pos = 1
+
+  -- 1. Idの解析
+  local next_comma = line:find(",", current_pos)
+  if not next_comma then return nil end
+  id = line:sub(current_pos, next_comma - 1)
+  current_pos = next_comma + 1
+
+  -- 2. Typeの解析
+  next_comma = line:find(",", current_pos)
+  if not next_comma then return nil end
+  type = line:sub(current_pos, next_comma - 1)
+  current_pos = next_comma + 1
+
+  -- 3. Nameの解析 (引用符の有無を考慮)
+  if line:sub(current_pos, current_pos) == '"' then
+    -- Nameが引用符で囲まれている
+    current_pos = current_pos + 1
+    local end_quote = line:find('",', current_pos)
+    if not end_quote then return nil end -- 予期せぬ形式
+    name = line:sub(current_pos, end_quote - 1)
+    current_pos = end_quote + 2 -- `",`をスキップ
+  else
+    -- Nameが引用符で囲まれていない
+    next_comma = line:find(",", current_pos)
+    if not next_comma then return nil end
+    name = line:sub(current_pos, next_comma - 1)
+    current_pos = next_comma + 1
+  end
+
+  -- 4. FileとLineの解析 (存在しない場合も考慮)
+  if current_pos > #line then
+    -- 行の末尾に到達した場合
+    file = ""
+    line_num = ""
+  else
+    local rest_of_line = line:sub(current_pos)
+    local last_comma_pos = rest_of_line:match("^.*,") -- 最後尾のカンマを探す
+    if last_comma_pos then
+      -- カンマが見つかれば、それがFileとLineの区切り
+      local split_pos = #last_comma_pos
+      file = rest_of_line:sub(1, split_pos - 1)
+      line_num = rest_of_line:sub(split_pos + 1)
+    else
+      -- カンマがなければ、残りは全てFileでLineは空
+      file = rest_of_line
+      line_num = ""
+    end
+  end
+
+  return id, type, name, file, line_num
+end
+
 --- .utrace ファイルを再帰的に検索するヘルパー
 local function find_utrace_files(search_dirs)
   if not search_dirs or #search_dirs == 0 then return {} end
@@ -120,9 +180,16 @@ local function process_in_memory_data_async(utrace_filepath, loaded_data, progre
     progress_handle:stage_define("timers", #timer_lines)
     progress_handle:stage_update("timers", 0, "Parsing Timers...")
     for i, line in ipairs(timer_lines) do
-      local id, type, name, file, line_num = line:match('^([^,]+),([^,]+),"(.-)",(.-),([^,]+)$')
-      if id and id ~= "Id" then
-        timer_info[tonumber(id)] = { name = name, file = file, line = line_num }
+      if line ~= "Id,Type,Name,File,Line" and line ~= "" then
+        -- BUG: 古い正規表現は削除
+        -- local id, type, name, file, line_num = line:match('^([^,]+),([^,]+),"(.-)",(.-),([^,]+)$')
+        
+        -- FIX: 新しい堅牢なパーサーを呼び出す
+        local id, type, name, file, line_num = parse_timer_line(line)
+
+        if id then
+          timer_info[tonumber(id)] = { name = name, file = file, line = line_num }
+        end
       end
       if i % 500 == 0 then
         progress_handle:stage_update("timers", i, string.format("Parsing Timers... (%d/%d)", i, #timer_lines))
