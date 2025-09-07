@@ -41,23 +41,43 @@ local function redraw_huds()
     if state.display_mode == "avg" then
         scale_text = string.format("avg (0-%.1fms)", state.global_stats.avg * 3)
     end
+    local cursor = vim.api.nvim_win_get_cursor(win_id)
+    local cursor_row = cursor[1] - 1
+    local cursor_col = cursor[2]
+    local frame_index = cursor_col + 1
+    local frame = state.frames_data[frame_index]
+
+
+    local frame_info = string.format("Frame %d: %.2fms", frame.frame_number, frame.duration_ms)
     local static_text = string.format("[Total: %d frames | Avg: %.2fms | Max: %.2fms | Scale: %s]",
         #state.frames_data, state.global_stats.avg, state.global_stats.max, scale_text)
 
     vim.api.nvim_buf_set_extmark(buf_id, state.vtext_ns_id, 0, scroll_col, {
-        virt_text = { { static_text, "Comment" } },
+        virt_text = {
+
+          { frame_info, "Identifier" },
+          { " ", "" },
+          { static_text, "Comment" }
+        },
         virt_text_pos = "overlay",
     })
 
-    local cursor_col = vim.api.nvim_win_get_cursor(win_id)[2]
-    local frame_index = cursor_col + 1
-    local frame = state.frames_data[frame_index]
+    local marker
+    if cursor_row == 0 then
+      marker = "▼"
+    else
+      marker = "●"
+    end
+
     if frame then
-        local frame_info = string.format("Frame %d: %.2fms", frame.frame_number, frame.duration_ms)
-        vim.api.nvim_buf_set_extmark(buf_id, state.vtext_ns_id, 0, cursor_col, {
-            virt_text = { { "▼", "DiagnosticHint" }, { " " .. frame_info, "Identifier" } },
-            virt_text_pos = "overlay",
-        })
+      local cursor = vim.api.nvim_win_get_cursor(win_id)
+      local cursor_row = cursor[1] - 1
+      local cursor_col = cursor[2]
+
+      vim.api.nvim_buf_set_extmark(buf_id, state.vtext_ns_id, cursor_row, cursor_col, {
+        virt_text = { { marker, "DiagnosticHint" } },
+        virt_text_pos = "overlay",
+      })
     end
 end
 
@@ -301,13 +321,6 @@ function M.open(trace_handle)
             buffer = buf_id,
             callback = redraw_huds,
         })
-
-        local map_opts = { noremap = true, silent = true }
-        vim.api.nvim_buf_set_keymap(buf_id, "n", "j", "<Nop>", map_opts)
-        vim.api.nvim_buf_set_keymap(buf_id, "n", "k", "<Nop>", map_opts)
-        vim.api.nvim_buf_set_keymap(buf_id, "n", "<Down>", "<Nop>", map_opts)
-        vim.api.nvim_buf_set_keymap(buf_id, "n", "<Up>", "<Nop>", map_opts)
-        vim.api.nvim_buf_set_keymap(buf_id, "n", "<CR>", "<Nop>", map_opts)
 
         vim.api.nvim_win_set_cursor(win_id, { 1, 0 })
     end)
