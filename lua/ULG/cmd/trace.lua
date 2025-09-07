@@ -1,4 +1,4 @@
--- lua/ULG/cmd/trace.lua (キャッシュ統合版・完全コード)
+-- lua/ULG/cmd/trace.lua (エラー修正・UNL API準拠版)
 
 local unl_api = require("UNL.api")
 local unl_finder = require("UNL.finder")
@@ -7,75 +7,55 @@ local path = require("UNL.path")
 local log = require("ULG.logger")
 local general_log_view = require("ULG.buf.log.general")
 local trace_cache = require("ULG.cache.trace")
-local unl_progress = require("UNL.backend.progress") -- ★ プログレスバーをrequire
+local unl_progress = require("UNL.backend.progress")
+local unl_cache_core = require("UNL.cache.core")
 
 local M = {}
 
 --------------------------------------------------------------------------------
 -- Helper Functions (Private)
 --------------------------------------------------------------------------------
-
-
---- [FIX] Timers.csvの行を堅牢に解析するヘルパー関数
--- Nameフィールドが引用符で囲まれている場合と、そうでない場合の両方に対応する
+-- (find_utrace_files, parse_timer_line ヘルパーは変更なし)
 local function parse_timer_line(line)
   if not line or line == "" then return nil end
-
   local id, type, name, file, line_num
   local current_pos = 1
-
-  -- 1. Idの解析
   local next_comma = line:find(",", current_pos)
   if not next_comma then return nil end
   id = line:sub(current_pos, next_comma - 1)
   current_pos = next_comma + 1
-
-  -- 2. Typeの解析
   next_comma = line:find(",", current_pos)
   if not next_comma then return nil end
   type = line:sub(current_pos, next_comma - 1)
   current_pos = next_comma + 1
-
-  -- 3. Nameの解析 (引用符の有無を考慮)
   if line:sub(current_pos, current_pos) == '"' then
-    -- Nameが引用符で囲まれている
     current_pos = current_pos + 1
     local end_quote = line:find('",', current_pos)
-    if not end_quote then return nil end -- 予期せぬ形式
+    if not end_quote then return nil end
     name = line:sub(current_pos, end_quote - 1)
-    current_pos = end_quote + 2 -- `",`をスキップ
+    current_pos = end_quote + 2
   else
-    -- Nameが引用符で囲まれていない
     next_comma = line:find(",", current_pos)
     if not next_comma then return nil end
     name = line:sub(current_pos, next_comma - 1)
     current_pos = next_comma + 1
   end
-
-  -- 4. FileとLineの解析 (存在しない場合も考慮)
   if current_pos > #line then
-    -- 行の末尾に到達した場合
-    file = ""
-    line_num = ""
+    file, line_num = "", ""
   else
     local rest_of_line = line:sub(current_pos)
-    local last_comma_pos = rest_of_line:match("^.*,") -- 最後尾のカンマを探す
+    local last_comma_pos = rest_of_line:match("^.*,")
     if last_comma_pos then
-      -- カンマが見つかれば、それがFileとLineの区切り
       local split_pos = #last_comma_pos
       file = rest_of_line:sub(1, split_pos - 1)
       line_num = rest_of_line:sub(split_pos + 1)
     else
-      -- カンマがなければ、残りは全てFileでLineは空
-      file = rest_of_line
-      line_num = ""
+      file, line_num = rest_of_line, ""
     end
   end
-
   return id, type, name, file, line_num
 end
 
---- .utrace ファイルを再帰的に検索するヘルパー
 local function find_utrace_files(search_dirs)
   if not search_dirs or #search_dirs == 0 then return {} end
   if vim.fn.executable("fd") == 1 then
@@ -105,153 +85,127 @@ local function find_utrace_files(search_dirs)
   return files
 end
 
-local function load_csvs_async(export_dir, on_complete)
-  local files_to_load = {
-    timers = path.join(export_dir, "Timers.csv"),
-    threads = path.join(export_dir, "Threads.csv"),
-    events = path.join(export_dir, "TimingEvents.csv"),
-  }
-  
-  local results = {}
-  local remaining = vim.tbl_count(files_to_load)
-
-  -- 真の非同期ファイルリーダー
-  local function read_file_async(filepath, callback)
-    local fd = vim.loop.fs_open(filepath, "r", 438)
-    if not fd then return callback(nil, "Failed to open file") end
-
-    vim.loop.fs_fstat(fd, function(err, stat)
-      if err or not stat then
-        vim.loop.fs_close(fd)
-        return callback(nil, "Failed to get file stats")
-      end
-
-      vim.loop.fs_read(fd, stat.size, 0, function(err2, data)
-        vim.loop.fs_close(fd)
-        if err2 or not data then
-          return callback(nil, "Failed to read file content")
-        end
-        -- 読み込み成功後、安全なタイミングでコールバックを呼び出す
-        vim.schedule(function()
-          callback(vim.split(data, "\r?\n"))
-        end)
-      end)
-    end)
-  end
-
-  -- 各ファイルを非同期で読み込むループ
-  for key, filepath in pairs(files_to_load) do
-    -- ★★★ これが、最後の、そして真の修正です ★★★
-    -- ループ内の変数をキャプチャするために、無名関数でラップする
-    (function(current_key, current_filepath)
-      read_file_async(current_filepath, function(lines, err_msg)
-        if not lines then
-          log.get().error("Failed to read '%s': %s", current_key, err_msg or "Unknown error")
-          results[current_key] = {} -- 失敗した場合は空のテーブルを入れる
-        else
-          results[current_key] = lines
-        end
-        
-        remaining = remaining - 1
-        if remaining == 0 then
-          -- 全ての読み込みが完了したら、最終コールバックを呼ぶ
-          on_complete(results)
-        end
-      end)
-    end)(key, filepath)
-  end
-end
 ---
+-- CSVファイルをメモリにロードする (TimingEvents.csv以外)
+local function load_small_csvs(export_dir)
+    local timer_csv_path = path.join(export_dir, "Timers.csv")
+    local thread_csv_path = path.join(export_dir, "Threads.csv")
+
+    -- ★★★ ここが前回のエラーの修正点です ★★★
+    -- 存在しない unl_cache_core.load_text_file の代わりに vim.fn.readfile を使用します。
+    local timer_lines = vim.fn.filereadable(timer_csv_path) == 1 and vim.fn.readfile(timer_csv_path) or nil
+    local thread_lines = vim.fn.filereadable(thread_csv_path) == 1 and vim.fn.readfile(thread_csv_path) or nil
+    
+    local timer_info, thread_info = {}, {}
+    -- Timers.csv をパース
+    if timer_lines then
+        for _, line in ipairs(timer_lines) do
+            if line ~= "Id,Type,Name,File,Line" and line ~= "" then
+                local id, type, name, file, line_num = parse_timer_line(line)
+                if id then timer_info[id] = { name = name, file = file, line = line_num } end
+            end
+        end
+    end
+    -- Threads.csv をパース
+    if thread_lines then
+        for _, line in ipairs(thread_lines) do
+            if line ~= "Id,Name,Group" and line ~= "" then
+                local id, name, group = line:match('^([^,]+),([^,]+),?(.*)$')
+                if id and name then thread_info[id] = { name = name, group = group } end
+            end
+        end
+    end
+    return timer_info, thread_info
+end
+
+
+---
+-- TimingEvents.csvをストリーム処理して階層化データを構築・保存する
 -- @param utrace_filepath string 元となった.utraceファイルのパス
--- @param loaded_data table {timers, threads, events} 各CSVの内容(行のテーブル)を格納したテーブル
--- @param progress_handle table create_for_refreshから返されたプログレスハンドル
-local function process_in_memory_data_async(utrace_filepath, loaded_data, progress_handle)
-  -- 読み込まれたデータを展開
-  local timer_lines = loaded_data.timers
-  local thread_lines = loaded_data.threads
-  local event_lines = loaded_data.events
+-- @param loaded_maps table {timers, threads} 事前にパースしたIDと情報のマップ
+-- @param progress_handle table プログレスバーのハンドル
+local function process_stream_data_async(utrace_filepath, loaded_maps, progress_handle)
+  local trace_dir = trace_cache.get_trace_cache_dir(utrace_filepath)
+  local events_csv_path = path.join(trace_dir, "TimingEvents.csv")
 
   local worker = coroutine.create(function()
-    local timer_info = {}
-    local thread_info = {}
-    local integrated_events = {}
+    local thread_states = {}
+    local line_count = 0
+    progress_handle:stage_define("processing", 1)
+    progress_handle:stage_update("processing", 0, "Processing events...")
 
-    -- ステージ: Timers.csv
-    progress_handle:stage_define("timers", #timer_lines)
-    progress_handle:stage_update("timers", 0, "Parsing Timers...")
-    for i, line in ipairs(timer_lines) do
-      if line ~= "Id,Type,Name,File,Line" and line ~= "" then
-        -- BUG: 古い正規表現は削除
-        -- local id, type, name, file, line_num = line:match('^([^,]+),([^,]+),"(.-)",(.-),([^,]+)$')
-        
-        -- FIX: 新しい堅牢なパーサーを呼び出す
-        local id, type, name, file, line_num = parse_timer_line(line)
+    for line in io.lines(events_csv_path) do
+      line_count = line_count + 1
+      local thread_id_str, timer_id_str, start_time, end_time, depth_str = line:match('^([^,]+),([^,]+),([^,]+),([^,]+),([^,]+)$')
 
-        if id then
-          timer_info[tonumber(id)] = { name = name, file = file, line = line_num }
-        end
-      end
-      if i % 500 == 0 then
-        progress_handle:stage_update("timers", i, string.format("Parsing Timers... (%d/%d)", i, #timer_lines))
-        coroutine.yield()
-      end
-    end
-    progress_handle:stage_update("timers", #timer_lines, "Parsed Timers")
-
-    -- ステージ: Threads.csv
-    progress_handle:stage_define("threads", #thread_lines)
-    progress_handle:stage_update("threads", 0, "Parsing Threads...")
-    for i, line in ipairs(thread_lines) do
-      if line ~= "Id,Name,Group" and line ~= "" then
-        local id, name, group = line:match('^([^,]+),([^,]+),?(.*)$')
-        if id and name then thread_info[tonumber(id)] = { name = name, group = group } end
-      end
-      if i % 500 == 0 then
-        progress_handle:stage_update("threads", i, string.format("Parsing Threads... (%d/%d)", i, #thread_lines))
-        coroutine.yield()
-      end
-    end
-    progress_handle:stage_update("threads", #thread_lines, "Parsed Threads")
-    
-    -- ステージ: TimingEvents.csv
-    local total_event_lines = #event_lines
-    progress_handle:stage_define("events", total_event_lines)
-    progress_handle:stage_update("events", 0, "Integrating Events...")
-    for i, line in ipairs(event_lines) do
-      local thread_id_str, timer_id_str, start_time, end_time, depth = line:match('^([^,]+),([^,]+),([^,]+),([^,]+),([^,]+)$')
       if timer_id_str and timer_id_str ~= "TimerId" then
-        local timer_id, thread_id = tonumber(timer_id_str), tonumber(thread_id_str)
-        local info, th_info = timer_info[timer_id], thread_info[thread_id]
-        if info then
-          table.insert(integrated_events, {
-            name = info.name, file = info.file, line = info.line,
-            start = tonumber(start_time), ["end"] = tonumber(end_time), depth = tonumber(depth),
-            thread_id = thread_id, thread_name = (th_info and th_info.name) or "Unknown",
-            thread_group = (th_info and th_info.group) or "",
-          })
+        local thread_id = tonumber(thread_id_str)
+        local depth = tonumber(depth_str)
+
+        if not thread_states[thread_id] then
+          thread_states[thread_id] = {
+            event_stack = {},
+            top_level_events = {},
+          }
         end
+        local state = thread_states[thread_id]
+
+        local event = {
+          tid = tonumber(timer_id_str),
+          s = tonumber(start_time),
+          e = tonumber(end_time),
+          children = {}
+        }
+
+        while #state.event_stack > depth do
+          table.remove(state.event_stack)
+        end
+
+        if #state.event_stack > 0 then
+          local parent = state.event_stack[#state.event_stack]
+          table.insert(parent.children, event)
+        else
+          table.insert(state.top_level_events, event)
+        end
+
+        table.insert(state.event_stack, event)
       end
-      if i % 2000 == 0 then
-        progress_handle:stage_update("events", i, string.format("Integrating Events... (%d/%d)", i, total_event_lines))
+
+      if line_count % 10000 == 0 then
+        progress_handle:stage_update("processing", 0.5, string.format("Processing events... (line %d)", line_count))
         coroutine.yield()
       end
     end
-    progress_handle:stage_update("events", total_event_lines, "Integrated all events")
-    
-    -- ステージ: finalize
-    progress_handle:stage_update("finalize", 0, "Saving cache...")
-    local ok = trace_cache.save(utrace_filepath, integrated_events)
-    if ok then
-      log.get().info("Successfully saved trace cache for %s", utrace_filepath)
-      vim.notify("Trace analysis complete and cached successfully!")
-      -- TODO: display_trace_data(integrated_events)
-    else
-      log.get().error("Failed to save trace cache for %s", utrace_filepath)
+    progress_handle:stage_update("processing", 1, "Finished processing events.")
+
+    progress_handle:stage_define("saving", vim.tbl_count(thread_states))
+    progress_handle:stage_update("saving", 0, "Saving cache files...")
+
+    local trace_data_metadata = {}
+    local saved_count = 0
+    for thread_id, state in pairs(thread_states) do
+      if #state.top_level_events > 0 then
+        local thread_data_path = path.join(trace_dir, string.format("trace_data_thread_%s.json", thread_id))
+        unl_cache_core.save_json(thread_data_path, state.top_level_events)
+        trace_data_metadata[tostring(thread_id)] = {}
+      end
+      saved_count = saved_count + 1
+      progress_handle:stage_update("saving", saved_count, string.format("Saving cache for thread %d", thread_id))
+      coroutine.yield()
     end
-    progress_handle:stage_update("finalize", 1, "Cache saved.")
+
+    local final_metadata = {
+      timers = loaded_maps.timers,
+      threads = loaded_maps.threads,
+      trace_data = trace_data_metadata,
+    }
+    trace_cache.save_metadata(utrace_filepath, final_metadata)
+
+    log.get().info("Successfully saved trace cache for %s", utrace_filepath)
+    vim.notify("Trace analysis complete and cached successfully!")
+    progress_handle:stage_update("saving", saved_count, "Cache saved.")
   end)
-  
-  -- コルーチンを駆動する関数
+
   local function resume_worker()
     if coroutine.status(worker) == "suspended" then
       local ok, err = coroutine.resume(worker)
@@ -267,59 +221,36 @@ local function process_in_memory_data_async(utrace_filepath, loaded_data, progre
       end
     end
   end
-  
   coroutine.resume(worker)
-  if coroutine.status(worker) == "suspended" then
-    vim.defer_fn(resume_worker, 1)
-  end
+  if coroutine.status(worker) == "suspended" then vim.defer_fn(resume_worker, 1) end
 end
-
 
 --- UnrealInsights.exe を非同期で実行してCSV群を生成する
 local function run_insights(utrace_filepath)
   local export_dir = trace_cache.get_trace_cache_dir(utrace_filepath)
   if not export_dir then return end
   vim.fn.mkdir(export_dir, "p")
-
-  -- 1. スレッド情報CSVの絶対パスも構築
   local timers_csv_path = path.join(export_dir, "Timers.csv")
   local events_csv_path = path.join(export_dir, "TimingEvents.csv")
-  local threads_csv_path = path.join(export_dir, "Threads.csv") -- ★ 新設
-
-  -- 2. パスを引用符で囲む
+  local threads_csv_path = path.join(export_dir, "Threads.csv")
   local quoted_timers_path = string.format('%q', timers_csv_path)
   local quoted_events_path = string.format('%q', events_csv_path)
-  local quoted_threads_path = string.format('%q', threads_csv_path) -- ★ 新設
-
-  -- 3. レスポンスファイルに、ExportThreadsコマンドを追加
+  local quoted_threads_path = string.format('%q', threads_csv_path)
   local rsp_path = path.join(export_dir, "export.rsp")
   local rsp_content = {
     "TimingInsights.ExportTimers " .. quoted_timers_path,
     "TimingInsights.ExportTimingEvents " .. quoted_events_path,
-    "TimingInsights.ExportThreads " .. quoted_threads_path, -- ★ 新設
+    "TimingInsights.ExportThreads " .. quoted_threads_path,
   }
   vim.fn.writefile(rsp_content, rsp_path)
-  
   local insights_log_path = path.join(export_dir, "UnrealInsights.log")
-  
   local conf = require("UNL.config").get("ULG")
   local progress_handle, provider_name =unl_progress.create_for_refresh(conf, {
-    title = "ULG Trace Analysis",
-    client_name = "ULG",
-    weights = {
-      insights = 0.30, -- Insights実行 (30%)
-      load_csv = 0.20, -- CSV読み込み (20%)
-      timers   = 0.05, -- Timers解析 (5%)
-      threads  = 0.05, -- Threads解析 (5%)
-      events   = 0.35, -- Events統合 (35%)
-      finalize = 0.05, -- 最終保存 (5%)
-    },
+    title = "ULG Trace Analysis", client_name = "ULG",
+    weights = { insights = 0.40, load_csv = 0.10, processing = 0.40, saving = 0.10, },
   })
-  
   progress_handle:stage_define("insights", 1)
-  progress_handle:stage_define("load_csv", 1) -- 新しいステージ
-  progress_handle:stage_define("finalize", 1)
-  -- (他のステージは、async関数内で動的にdefineしても良いが、ここで定義するとより明確)
+  progress_handle:stage_define("load_csv", 1)
 
   if general_log_view.is_open and general_log_view.is_open() then
     general_log_view.clear_buffer()
@@ -328,47 +259,31 @@ local function run_insights(utrace_filepath)
   else
     log.get().info("General log window is not open. Insights progress will be written to: %s", insights_log_path)
   end
-
   local project_root = unl_finder.project.find_project_root(vim.loop.cwd())
   local insights_exe, err = unl_api.find_insights(project_root)
   if not insights_exe then
     progress_handle:stop(false)
     return log.get().error("Could not find UnrealInsights.exe. Error: %s", tostring(err))
   end
-  
-  -- ★★★ ここからが、最後の改修です ★★★
-
   local final_command
   if vim.loop.os_uname().sysname == "Windows_NT" then
-    -- 内部のコマンド文字列を、cmd.exeが解釈できるように組み立てる
     local inner_command = string.format(
       '"%s" -OpenTraceFile="%s" -ABSLOG="%s" -NoUI -AutoQuit -ExecOnAnalysisCompleteCmd="@=%s"',
-      insights_exe,
-      utrace_filepath,
-      insights_log_path,
-      rsp_path
+      insights_exe, utrace_filepath, insights_log_path, rsp_path
     )
-    -- jobstartに渡す、最終的な「単一の文字列」を作成
     final_command = "cmd.exe /c " .. inner_command
   else
-    -- 非Windowsでは、これまで通りテーブル形式が最も安全
     final_command = {
-        insights_exe,
-        "-OpenTraceFile=" .. utrace_filepath,
-        "-ABSLOG=" .. insights_log_path,
-        "-NoUI",
-        "-AutoQuit",
-        "-ExecOnAnalysisCompleteCmd=@=" .. rsp_path
+        insights_exe, "-OpenTraceFile=" .. utrace_filepath, "-ABSLOG=" .. insights_log_path,
+        "-NoUI", "-AutoQuit", "-ExecOnAnalysisCompleteCmd=@=" .. rsp_path
     }
   end
-  
   log.get().info("Executing UnrealInsights with final command: %s", vim.inspect(final_command))
   vim.notify("Starting full trace export for: " .. vim.fn.fnamemodify(utrace_filepath, ":t"))
- 
   progress_handle:stage_update("insights", 0, "Running UnrealInsights.exe...")
 
   vim.fn.jobstart(final_command, {
- on_exit = function(_, exit_code)
+    on_exit = function(_, exit_code)
       vim.schedule(function()
         if general_log_view.is_open and general_log_view.is_open() then
           general_log_view.set_title("[[ General Log ]]")
@@ -376,15 +291,13 @@ local function run_insights(utrace_filepath)
 
         if exit_code == 0 then
           progress_handle:stage_update("insights", 1, "UnrealInsights finished.")
-          
-          -- ★ ステージ2: CSVの非同期読み込みを開始
-          progress_handle:stage_update("load_csv", 0, "Loading CSV files...")
-          load_csvs_async(export_dir, function(loaded_data)
-            progress_handle:stage_update("load_csv", 1, "CSV files loaded.")
-            
-            -- ★ ステージ3: 読み込んだデータを、非同期パーサーに渡す
-            process_in_memory_data_async(utrace_filepath, loaded_data, progress_handle)
-          end)
+
+          progress_handle:stage_update("load_csv", 0, "Loading Timers/Threads CSV...")
+          local timer_info, thread_info = load_small_csvs(export_dir)
+          progress_handle:stage_update("load_csv", 1, "CSV files loaded.")
+
+          process_stream_data_async(utrace_filepath, { timers = timer_info, threads = thread_info }, progress_handle)
+
         else
           log.get().error("UnrealInsights failed with exit code: %s", exit_code)
           progress_handle:finish(false)
@@ -394,20 +307,25 @@ local function run_insights(utrace_filepath)
   })
 end
 
+
 --------------------------------------------------------------------------------
 -- Command Logic (:ULG trace)
 --------------------------------------------------------------------------------
 
---- 選択された.utraceファイルを処理する共通ロジック
 local function process_selected_utrace(utrace_filepath)
   if not utrace_filepath then return end
 
-  local cached_data = trace_cache.load(utrace_filepath)
-  if cached_data then
+  local trace_handle = trace_cache.load(utrace_filepath)
+  if trace_handle then
     log.get().info("Found valid trace cache for %s", utrace_filepath)
     vim.notify("Trace cache loaded successfully!")
-    -- TODO: ここで、キャッシュされたデータを表示する関数を呼ぶ
-    -- display_trace_data(cached_data)
+    -- TODO: ここで、ハンドルを使ってデータを表示する関数を呼ぶ
+    -- 例:
+    -- local game_thread_data = trace_handle:get_thread_events("GameThread")
+    -- if game_thread_data then
+    --   -- ここでデータを表示するUIロジックを呼び出す
+    --   require("ULG.ui.trace_viewer").display(game_thread_data)
+    -- end
     return
   end
 
@@ -415,11 +333,10 @@ local function process_selected_utrace(utrace_filepath)
   run_insights(utrace_filepath)
 end
 
---- 全領域から.utraceファイルを探し、ピッカーを開く
+-- (open_trace_picker と M.execute は変更なし)
 local function open_trace_picker()
   local project_root = unl_finder.project.find_project_root(vim.loop.cwd())
   if not project_root then return log.get().error("Not in an Unreal Engine project.") end
-  
   local conf = require("UNL.config").get("ULG")
   local search_dirs = {}
   local appdata_store = path.join(vim.loop.os_homedir(), "AppData", "Local", "UnrealEngine", "Common", "UnrealTrace", "Store")
@@ -429,44 +346,30 @@ local function open_trace_picker()
   if conf.profiling and type(conf.profiling.additional_search_dirs) == "table" then
     vim.list_extend(search_dirs, conf.profiling.additional_search_dirs)
   end
-
   log.get().debug("Searching for .utrace files in: %s", table.concat(search_dirs, ", "))
-  
   local utrace_files = find_utrace_files(search_dirs)
   if #utrace_files == 0 then
     return log.get().warn("No .utrace files found in any of the configured search directories.")
   end
-
   table.sort(utrace_files, function(a, b)
       local ok_a, stat_a = pcall(vim.loop.fs_stat, a)
       local ok_b, stat_b = pcall(vim.loop.fs_stat, b)
-      if ok_a and ok_b then
-          return stat_a.mtime.sec > stat_b.mtime.sec
-      end
+      if ok_a and ok_b then return stat_a.mtime.sec > stat_b.mtime.sec end
       return false
   end)
-
   unl_picker.pick({
-    kind = "ulg_select_trace_file",
-    title = "Select .utrace File to Analyze",
-    conf = conf,
-    items = utrace_files,
-    on_submit = process_selected_utrace,
-    preview_enabled = false,
-    picker_opts = {
-      preview = false,
-    },
+    kind = "ulg_select_trace_file", title = "Select .utrace File to Analyze",
+    conf = conf, items = utrace_files, on_submit = process_selected_utrace,
+    preview_enabled = false, picker_opts = { preview = false, },
   })
 end
 
---- :ULG trace コマンドのメインロジック (Public)
 function M.execute(opts)
   opts = opts or {}
   local project_root = unl_finder.project.find_project_root(vim.loop.cwd())
   if not project_root then
     return log.get().error("Not in an Unreal Engine project.")
   end
-
   if opts.has_bang then
     log.get().debug("Bang provided, opening trace picker directly.")
     open_trace_picker()
@@ -474,14 +377,11 @@ function M.execute(opts)
     log.get().debug("Searching for the newest trace in Saved/Profiling...")
     local project_profiling_dir = path.join(project_root, "Saved", "Profiling")
     local files_in_proj = find_utrace_files({ project_profiling_dir })
-
     if #files_in_proj > 0 then
       table.sort(files_in_proj, function(a, b)
           local ok_a, stat_a = pcall(vim.loop.fs_stat, a)
           local ok_b, stat_b = pcall(vim.loop.fs_stat, b)
-          if ok_a and ok_b then
-              return stat_a.mtime.sec > stat_b.mtime.sec
-          end
+          if ok_a and ok_b then return stat_a.mtime.sec > stat_b.mtime.sec end
           return false
       end)
       local newest_file = files_in_proj[1]
@@ -495,3 +395,4 @@ function M.execute(opts)
 end
 
 return M
+
