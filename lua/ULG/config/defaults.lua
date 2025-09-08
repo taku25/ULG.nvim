@@ -129,6 +129,16 @@ local M = {
         priority = 110,
       },
     },
+    gantt_chart = {
+      color_palette = {
+        "ULGGanttColor1", "ULGGanttColor2", "ULGGanttColor3", "ULGGanttColor4",
+        "ULGGanttColor5", "ULGGanttColor6", "ULGGanttColor7", "ULGGanttColor8",
+        "ULGGanttColor9", "ULGGanttColor10",
+      },
+      
+      -- ★★★ 待機イベント用のハイライトグループ ★★★
+      wait_hl_group = "SpecialComment",
+    },
     trace_sparkline = {
       -- スパークラインの各ブロック（高さ）に対応するハイライトグループを定義。
       -- 1番目が一番低いブロック（パフォーマンスが良い）、8番目が一番高いブロック。

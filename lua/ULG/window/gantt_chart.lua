@@ -25,8 +25,8 @@ local function redraw_buffer()
   local start_time, end_time = center_time - time_radius_sec, center_time + time_radius_sec
 
   local analyzer_opts = {}
+  local conf = require("UNL.config").get("ULG")
   if not state.is_showing_all then
-    local conf = require("UNL.config").get("ULG")
     analyzer_opts.thread_names = conf.gantt.default_threads
   end
   local events_by_thread = trace_analyzer.get_events_in_range(state.trace_handle, start_time, end_time, analyzer_opts)
@@ -45,74 +45,91 @@ local function redraw_buffer()
     table.insert(lines, "Window is too narrow.")
   else
     local sec_per_char = time_range_sec / chart_width
-    local sorted_threads = {}
-    for name, _ in pairs(events_by_thread) do table.insert(sorted_threads, name) end
-    local priority_threads = { "GameThread", "RenderThread", "RHIThread" }
-    table.sort(sorted_threads, function(a, b)
-      local a_base, b_base = a:match("([^ ]+)"), b:match("([^ ]+)")
-      local a_prio, b_prio = #priority_threads + 1, #priority_threads + 1
-      for i, p_name in ipairs(priority_threads) do
-        if a_base == p_name then a_prio = i end
-        if b_base == p_name then b_prio = i end
-      end
-      if a_prio ~= b_prio then return a_prio < b_prio end
-      return a < b
-    end)
+    local sorted_threads = {}; for name, _ in pairs(events_by_thread) do table.insert(sorted_threads, name) end
+    local priority_threads = { "GameThread", "RenderThread", "RHIThread" }; table.sort(sorted_threads, function(a, b) local a_base, b_base = a:match("([^ ]+)"), b:match("([^ ]+)"); local a_prio, b_prio = #priority_threads + 1, #priority_threads + 1; for i, p_name in ipairs(priority_threads) do if a_base == p_name then a_prio = i end; if b_base == p_name then b_prio = i end end; if a_prio ~= b_prio then return a_prio < b_prio end; return a < b end)
 
-    -- ★★★ ここからが新しい描画ロジック ★★★
+ -- ★★★ ここからが新しい描画ロジック ★★★
+    local gantt_hl_conf = conf.gantt_chart or {}
+    local color_palette = gantt_hl_conf.color_palette or {}
+    local wait_hl = gantt_hl_conf.wait_hl_group or "SpecialComment"
     
-    -- イベント名が「待機」を示しているか判定するヘルパー関数
     local function is_wait_event(name)
-      if not name then return false end
+      if not name then
+        return true
+      end
       return name:find("Wait") or name:find("Stall") or name:find("Idle") or name:find("Sync")
     end
+    local highlights_to_apply = {}
 
     for _, thread_name in ipairs(sorted_threads) do
-      local char_array = {}
-      for i = 1, chart_width do char_array[i] = "─" end
+      local max_depth = 0; local function find_max_depth(events, current_depth) for _, event in ipairs(events) do max_depth = math.max(max_depth, current_depth); if event.children and #event.children > 0 then find_max_depth(event.children, current_depth + 1) end end end; find_max_depth(events_by_thread[thread_name], 0)
+      local canvas = {}; for i = 1, max_depth + 1 do canvas[i] = {}; for j = 1, chart_width do canvas[i][j] = " " end end
 
-      -- イベントツリーを再帰的に描画する関数
-      -- 子イベントは親イベントを上書きするため、詳細な情報が優先される
-      local function fill_chart_recursive(events)
+      local function fill_chart_recursive(events, current_depth)
         for _, event in ipairs(events) do
-          local event_start_rel = math.max(0, event.s - start_time)
-          local event_end_rel = math.min(time_range_sec, event.e - start_time)
+          local event_start_rel = math.max(0, event.s - start_time); local event_end_rel = math.min(time_range_sec, event.e - start_time)
           if event_end_rel <= event_start_rel then goto continue end
+          local start_idx = math.floor(event_start_rel / sec_per_char) + 1; local end_idx = math.ceil(event_end_rel / sec_per_char)
 
-          local start_idx = math.floor(event_start_rel / sec_per_char) + 1
-          local end_idx = math.ceil(event_end_rel / sec_per_char)
-          
-          -- ★ 待機イベントかワークイベントかで文字を決定
-          local char_to_draw = is_wait_event(event.name) and "░" or "█"
+          local is_wait = is_wait_event(event.name)
+          local char_to_draw = is_wait and "░" or "█"
 
-          for i = start_idx, end_idx do
-            if i >= 1 and i <= chart_width then
-              char_array[i] = char_to_draw
+          local target_row_idx = current_depth + 1
+          if canvas[target_row_idx] then
+            for i = start_idx, end_idx do if i >= 1 and i <= chart_width then canvas[target_row_idx][i] = char_to_draw end end
+
+            local hl_group
+            if is_wait then
+              hl_group = wait_hl
+            elseif #color_palette > 0 and event.name then
+              -- ★ イベント名から色を決定
+              print(event.name)
+              local hash = string_hash(event.name)
+              local color_index = (hash % #color_palette) + 1
+              hl_group = color_palette[color_index]
+            end
+
+            if hl_group then
+              local line_start_col = thread_name_margin + 2
+              table.insert(highlights_to_apply, {
+                line = #lines + target_row_idx -1,
+                start_col = line_start_col + start_idx - 1,
+                end_col = line_start_col + end_idx,
+                hl = hl_group,
+              })
             end
           end
-          
-          -- 子イベントを再帰的に描画 (上書き)
-          if event.children and #event.children > 0 then
-            fill_chart_recursive(event.children)
-          end
+
+          if event.children and #event.children > 0 then fill_chart_recursive(event.children, current_depth + 1) end
           ::continue::
         end
       end
-      
-      fill_chart_recursive(events_by_thread[thread_name])
+      fill_chart_recursive(events_by_thread[thread_name], 0)
 
-      local chart_str = table.concat(char_array)
-      local line_str = string.format("%-" .. thread_name_margin .. "s |%s|", thread_name, chart_str)
-      table.insert(lines, line_str)
+      table.insert(lines, string.format("%-" .. thread_name_margin .. "s |", thread_name))
+      for i = 1, max_depth + 1 do table.insert(lines, string.format("%-" .. thread_name_margin .. "s |%s|", "", table.concat(canvas[i]))) end
+      table.insert(lines, "")
     end
-    -- ★★★ 描画ロジックここまで ★★★
+
+    vim.api.nvim_set_option_value("modifiable", true, { buf = state.buf })
+    vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, lines)
+
+    local ns = vim.api.nvim_create_namespace("ULGGanttChart")
+    vim.api.nvim_buf_clear_namespace(state.buf, ns, 0, -1)
+    for _, h in ipairs(highlights_to_apply) do
+      -- ★★★ バグ修正：end_colが行の長さを超えないようにする ★★★
+      local line_content = lines[h.line + 1]
+      if line_content and h.end_col <= #line_content then
+        vim.api.nvim_buf_set_extmark(state.buf, ns, h.line, h.start_col, {
+          end_col = h.end_col,
+          hl_group = h.hl,
+        })
+      end
+    end
+
+    vim.api.nvim_set_option_value("modifiable", false, { buf = state.buf })
   end
-
-  vim.api.nvim_set_option_value("modifiable", true, { buf = state.buf })
-  vim.api.nvim_buf_set_lines(state.buf, 0, -1, false, lines)
-  vim.api.nvim_set_option_value("modifiable", false, { buf = state.buf })
 end
-
 -- M.open と M.toggle_all_threads は変更なし
 function M.open(trace_handle, frame_data, opts)
   if state.win and vim.api.nvim_win_is_valid(state.win) then
@@ -122,7 +139,7 @@ function M.open(trace_handle, frame_data, opts)
   state.is_showing_all = false
   state.buf = vim.api.nvim_create_buf(false, true)
   vim.bo[state.buf].buftype = "nofile"; vim.bo[state.buf].swapfile = false
-  
+
   local width = math.floor(vim.o.columns * 0.9)
   local height = math.floor(vim.o.lines * 0.6)
   local row, col = math.floor((vim.o.lines - height) / 2), math.floor((vim.o.columns - width) / 2)
@@ -130,7 +147,7 @@ function M.open(trace_handle, frame_data, opts)
     relative = "editor", width = width, height = height, row = row, col = col,
     style = "minimal", border = "rounded", title = "ULG Gantt Chart (Frame " .. frame_data.frame_number .. ")",
   })
-  
+
   -- 初回描画はwinのIDが確定してから行う
   redraw_buffer()
 
