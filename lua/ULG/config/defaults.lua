@@ -63,7 +63,9 @@ local M = {
     },
         -- トレースサマリービューワー用のキーマップ
     trace = {
-      show_details = "f",          -- フレーム詳細をフローティングウィンドウで表示
+      show_callees_tree = "<cr>",
+      show_callees = "c",          -- フレーム詳細をフローティングウィンドウで表示
+      show_gantt_chart= "t",
       scroll_right_page = "L",     -- 1ページ右へスクロール
       scroll_left_page = "H",      -- 1ページ左へスクロール
       scroll_right = "l",          -- 1フレーム右へ
@@ -76,6 +78,16 @@ local M = {
       first_frame = "gg",          -- 最初のフレームへジャンプ
       last_frame = "G",            -- 最後のフレームへジャンプ
       show_help = "?", -- ★ この行を追加
+    },
+  },
+
+  gantt = {
+    -- ガントチャートでデフォルト表示するスレッド名のリスト。
+    -- GameThread, RenderThread, RHIThread はパフォーマンス分析で特に重要。
+    default_threads = {
+      "GameThread",
+      "RHIThread",
+      "RenderThread 0",
     },
   },
 

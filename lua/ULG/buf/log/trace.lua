@@ -1,8 +1,9 @@
--- lua/ULG/buf/log/trace_summary.lua (スパークラインハイライト・整形・最終完成形)
+-- lua/ULG/buf/log/trace.lua (スパークラインハイライト・整形・最終完成形)
 
 local trace_analyzer = require("ULG.analyzer.trace")
-local trace_tree_viewer = require("ULG.window.callees")
 local unl_log_engine = require("UNL.backend.buf.log")
+local unl_events = require("UNL.event.events")
+local unl_event_types = require("UNL.event.types")
 
 local M = {}
 M.callbacks = {}
@@ -101,6 +102,7 @@ function M.open(trace_handle)
   if state.handle and state.handle:is_open() then
     return
   end
+  state.trace_handle = trace_handle
   state.frames_data = trace_analyzer.analyze_gamethread_frames(trace_handle:get_thread_events("GameThread"))
   if #state.frames_data == 0 then
     vim.notify("No 'FEngineLoop::Tick' events found in GameThread trace.", vim.log.levels.WARN)
@@ -256,12 +258,49 @@ function M.open(trace_handle)
     end
   end
 
-  M.callbacks.show_details = function()
+  M.callbacks.show_callees = function() -- (名前は show_details のままでOK)
     local win = state.handle:get_win_id()
     if not win then return end
     local frame_index = vim.api.nvim_win_get_cursor(win)[2] + 1
     if state.frames_data[frame_index] then
-      trace_tree_viewer.open(state.frames_data[frame_index])
+      -- ★ 呼び出し先を callee ビューワーに変更
+      require("ULG.window.callees").open(state.frames_data[frame_index])
+    end
+  end
+
+  M.callbacks.show_callees_tree  = function() -- 'c'(または<CR>)にマッピングされている
+    local win = state.handle:get_win_id()
+    if not win then return end
+    local frame_index = vim.api.nvim_win_get_cursor(win)[2] + 1
+    local frame = state.frames_data[frame_index]
+
+
+    
+
+    if frame and state.trace_handle then
+      unl_events.publish(unl_event_types.ON_REQUEST_TRACE_CALLEES_VIEW, {
+        trace_handle = state.trace_handle,
+        frame_data = frame,
+      })
+    end
+
+    --ここの直接起動はどうにかしたい
+    local ok, neo_tree_cmd = pcall(require, "neo-tree.command")
+    if ok then
+      neo_tree_cmd.execute({ source = "insights", action = "focus" })
+    end
+
+end
+  -- ★★★ 新しいコールバックを追加 ★★★
+  M.callbacks.show_gantt_chart = function()
+    local win = state.handle:get_win_id()
+    if not win then return end
+    local frame_index = vim.api.nvim_win_get_cursor(win)[2] + 1
+    local frame = state.frames_data[frame_index]
+    if frame then
+      -- ★ 新しいガントチャートモジュールを呼び出す
+      -- trace_handle を渡すために、state に保持するように修正が必要
+      require("ULG.window.gantt_chart").open(state.trace_handle, frame, { time_range_ms = 16.6 })
     end
   end
 
