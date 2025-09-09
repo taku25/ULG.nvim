@@ -4,11 +4,21 @@
 
 <table>
   <tr>
-    <td><div align=center><img width="100%" alt="ULG.nvim Log Viewer" src="https://raw.githubusercontent.com/taku25/ULG.nvim/images/assets/main.png" /></div></td>
+    <td>
+      <div align=center>
+      <img width="100%" alt="ULG.nvim Log Viewer" src="https://raw.githubusercontent.com/taku25/ULG.nvim/images/assets/main.png" />
+      </div>
+    </td>
+    <td>
+      <div align=center>
+      <img width="100%" alt="ULG.nvim Log Viewer" src="https://raw.githubusercontent.com/taku25/ULG.nvim/images/assets/trace_gantt.png" />
+      </div>
+    </td>
   </tr>
 </table>
 
 `ULG.nvim` は、Unreal Engine のログフローを Neovim に統合するための、ログビューアです。
+Unreal-insightsの表示にも対応しており、スパークラインで各フレームの重さを確認、また['neo-tree-unl'](https://github.com/taku25/neo-tree-unl)を使えばinsightsの情報から関数に直接ジャンプできます。
 
 [`UNL.nvim`](https://github.com/taku25/UNL.nvim) ライブラリを基盤として構築されており、リアルタイムでのログ追跡、強力なフィルタリング、ログからのソースコードへのジャンプ機能などを提供します。
 
@@ -29,6 +39,8 @@
         **リアルタイムでログのカテゴリーを収集して選択できます**
     *   全フィルターの一時的なON/OFF切り替え。
 *   **Unreal Editor連携 (リモートコマンド実行)**: ログウィンドウから直接、Live CodingのトリガーやstatコマンドなどをUnreal Editorに送信できます。(**オプション**)
+*   **insights対応 (utrace)**: insightsから出力されたutrace情報を解析、直感的な操作で処理負荷を見ることができます。
+    * neo-tree-unlを使えば直接関数へジャンプできます(**オプション**)
 *   **ソースコード連携**: ログに出力されたファイルパス (`C:/.../File.cpp(10:20)` など) から、`<CR>` キー一発で該当箇所にジャンプします。
 *   **柔軟なUI**:
     *   ログウィンドウは垂直/水平分割で、表示位置やサイズを自由に設定可能。
@@ -56,7 +68,6 @@
     </td>
   </tr>
 </table>
-/table>
 
 ## 🔧 必要要件 (Requirements)
 
@@ -133,21 +144,42 @@ return {
   -- タイムスタンプをデフォルトで非表示にするか
   hide_timestamp = true,
 
-  -- ログウィンドウ内でのキーマップ
   keymaps = {
-    filter_prompt = "s",          -- 正規表現フィルターの入力
-    filter_clear = "<Esc>",       -- 全フィルターのクリア
-    toggle_timestamp = "i",       -- タイムスタンプ表示の切り替え
-    clear_content = "c",          -- ログ内容のクリア
-    category_filter_prompt = "f", -- カテゴリフィルターの選択
-    remote_command_prompt = "P",  -- リモートコマンドのプロンプトを開く
-    jump_to_source = "<CR>",      -- ソースコードへジャンプ
-    filter_toggle = "t",          -- 全フィルターの有効/無効を切り替え
-    search_prompt = "p",          -- 表示内検索 (ハイライト)
-    jump_next_match = "]f",       -- 次のフィルター行へジャンプ
-    jump_prev_match = "[f",       -- 前のフィルター行へジャンプ
-    toggle_build_log = "b",       -- (注: このキーマップは現在ULGでは使用されません)
-    show_help = "?",              -- ヘルプウィンドウの表示
+      -- ログウィンドウ内でのキーマッ� �   
+    log = {
+      filter_prompt = "s",          -- 正規表現フィルターの入力
+      filter_clear = "<Esc>",       -- 全フィルターのクリア
+      toggle_timestamp = "i",       -- タイムスタンプ表示の切り替え
+      clear_content = "c",          -- ログ内容のクリア
+      category_filter_prompt = "f", -- カテゴリフィルターの選択
+      remote_command_prompt = "P",  -- リモートコマンドのプロンプトを開く
+      jump_to_source = "<CR>",      -- ソースコードへジャンプ
+      filter_toggle = "t",          -- 全フィルターの有効/無効を切り替え
+      search_prompt = "p",          -- 表示内検索 (ハイライト)
+      jump_next_match = "]f",       -- 次のフィルター行へジャンプ
+      jump_prev_match = "[f",       -- 前のフィルター行へジャンプ
+      toggle_build_log = "b",       -- (注: このキーマップは現在ULGでは使用されません)
+      show_help = "?",              -- ヘルプウィンドウの表示
+    },
+
+    -- トレースサマリービューワー用のキーマップ
+    trace = {
+      show_callees_tree = "<cr>",
+      show_callees = "c",          -- フレーム詳細をフローティングウィンドウで表示
+      show_gantt_chart= "t",
+      scroll_right_page = "L",     -- 1ページ右へスクロール
+      scroll_left_page = "H",      -- 1ページ左へスクロール
+      scroll_right = "l",          -- 1フレーム右へ
+      scroll_left = "h",           -- 1フレーム左へ
+      toggle_scale_mode = "m",     -- スパークラインのスケールモードを切り替え
+      next_spike = "]",            -- 次のスパイクへジャンプ
+      prev_spike = "[",            -- 前のスパイクへジャンプ
+      first_spike = "g[",          -- 最初のスパイクへジャンプ
+      last_spike = "g]",           -- 最後のスパイクへジャンプ
+      first_frame = "gg",          -- 最初のフレームへジャンプ
+      last_frame = "G",            -- 最後のフレームへジャンプ
+      show_help = "?", -- ★ この行を追加
+    },
   },
 
   -- ヘルプウィンドウの枠線
@@ -155,6 +187,17 @@ return {
     border = "rounded",
   },
 
+  -- traceのスパークライン
+  spark_chars = { " ", "▂", "▃", "▄", "▅", "▆", "▇" },
+  gantt = {
+    -- ガントチャートでデフォルト表示するスレッド名のリスト。
+    -- GameThread, RenderThread, RHIThread はパフォーマンス分析で特に重要。
+    default_threads = {
+      "GameThread",
+      "RHIThread",
+      "RenderThread 0",
+    },
+  },
   -- シンタックスハイライトの設定
   highlights = {
     enabled = true,
@@ -175,6 +218,8 @@ return {
 :ULG start!     " ファイルピッカーを開き、追跡したいUEログファイルを選択します。
 :ULG stop       " ログの追跡を停止します（ウィンドウは開いたままです）。
 :ULG close      " 全てのログウィンドウを閉じます。
+:ULG trace      " saved/profiling 最も新しい.utraceを開きます。ない場合はtrace!と同じ挙動になります
+:ULG trace!     " utraceピッカーを開き、情報を解析＆表示を行います(キャッシュを生成するため初回は重いです)
 ```
 ### ログウィンドウでの操作
 * Pキー（デフォルト）: Unreal Editorに送信するリモートコマンドの入力プロンプトを開きます。プロンプトでは設定したコマンドの補完が利用できます。
