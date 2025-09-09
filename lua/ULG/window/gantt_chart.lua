@@ -17,6 +17,14 @@ end
 local function redraw_buffer()
   if not (state.buf and vim.api.nvim_buf_is_valid(state.buf)) then return end
 
+  local function string_hash(s)
+      local hash = 5381
+      for i = 1, #s do
+          hash = (hash * 33) + string.byte(s, i)
+      end
+      return hash
+  end
+
   local trace_analyzer = require("ULG.analyzer.trace")
   
   local center_time = state.frame_data.frame_start_time
@@ -49,7 +57,7 @@ local function redraw_buffer()
     local priority_threads = { "GameThread", "RenderThread", "RHIThread" }; table.sort(sorted_threads, function(a, b) local a_base, b_base = a:match("([^ ]+)"), b:match("([^ ]+)"); local a_prio, b_prio = #priority_threads + 1, #priority_threads + 1; for i, p_name in ipairs(priority_threads) do if a_base == p_name then a_prio = i end; if b_base == p_name then b_prio = i end end; if a_prio ~= b_prio then return a_prio < b_prio end; return a < b end)
 
  -- ★★★ ここからが新しい描画ロジック ★★★
-    local gantt_hl_conf = conf.gantt_chart or {}
+    local gantt_hl_conf = conf.highlights.gantt_chart or {}
     local color_palette = gantt_hl_conf.color_palette or {}
     local wait_hl = gantt_hl_conf.wait_hl_group or "SpecialComment"
     
@@ -83,11 +91,11 @@ local function redraw_buffer()
               hl_group = wait_hl
             elseif #color_palette > 0 and event.name then
               -- ★ イベント名から色を決定
-              print(event.name)
               local hash = string_hash(event.name)
               local color_index = (hash % #color_palette) + 1
               hl_group = color_palette[color_index]
             end
+              
 
             if hl_group then
               local line_start_col = thread_name_margin + 2
