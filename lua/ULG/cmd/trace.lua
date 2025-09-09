@@ -376,27 +376,59 @@ end
 local function process_selected_utrace(utrace_filepath)
   if not utrace_filepath then return end
 
-  -- ★★★ ご提案の美しいロジック ★★★
   local trace_handle = trace_cache.load(utrace_filepath)
   if trace_handle then
-    log.get().info("Found valid trace cache for %s, opening summary.", utrace_filepath)
-    require("ULG.buf.log.trace").open(trace_handle)
+    log.get().info("Found valid trace cache for %s, opening views.", utrace_filepath)
+    -- ★★★ ここで直接UIを開き、イベントを発行する ★★★
+    local trace_summary_view = require("ULG.buf.log.trace")
+    trace_summary_view.open(trace_handle)
+    
+    -- 初回のフレームデータをペイロードとして作成
+    local frames = require("ULG.analyzer.trace").analyze_gamethread_frames(trace_handle:get_thread_events("GameThread"))
+    if frames and #frames > 0 then
+        local payload = {
+            trace_handle = trace_handle,
+            frame_data = frames[1], -- 最初のフレームをデフォルトで表示
+        }
+        -- contextに保存し、イベントを発行
+        require("UNL.context").use("ULG"):key("pending_request:neo-tree-insights"):set("payload", payload)
+        require("UNL.event.events").publish(require("UNL.event.types").ON_REQUEST_TRACE_CALLEES_VIEW, payload)
+    end
+
   else
     log.get().info("No cache found for %s. Starting new analysis.", utrace_filepath)
     run_insights(utrace_filepath, function(is_success)
       if is_success then
-        -- キャッシュ作成が成功したので、再度loadしてUIを開く
-        local new_trace_handle = trace_cache.load(utrace_filepath)
-        if new_trace_handle then
-          require("ULG.buf.log.trace").open(new_trace_handle)
-        else
-          log.get().error("Cache was created but failed to load. Please check logs.")
-        end
+        -- 成功したら、もう一度この関数を呼び出してUIを開く
+        process_selected_utrace(utrace_filepath)
       else
-        log.get().error("Trace analysis failed. Summary window will not be opened.")
+        log.get().error("Trace analysis failed.")
       end
     end)
   end
+  -- if not utrace_filepath then return end
+  --
+  -- -- ★★★ ご提案の美しいロジック ★★★
+  -- local trace_handle = trace_cache.load(utrace_filepath)
+  -- if trace_handle then
+  --   log.get().info("Found valid trace cache for %s, opening summary.", utrace_filepath)
+  --   require("ULG.buf.log.trace").open(trace_handle)
+  -- else
+  --   log.get().info("No cache found for %s. Starting new analysis.", utrace_filepath)
+  --   run_insights(utrace_filepath, function(is_success)
+  --     if is_success then
+  --       -- キャッシュ作成が成功したので、再度loadしてUIを開く
+  --       local new_trace_handle = trace_cache.load(utrace_filepath)
+  --       if new_trace_handle then
+  --         require("ULG.buf.log.trace").open(new_trace_handle)
+  --       else
+  --         log.get().error("Cache was created but failed to load. Please check logs.")
+  --       end
+  --     else
+  --       log.get().error("Trace analysis failed. Summary window will not be opened.")
+  --     end
+  --   end)
+  -- end
 end
 
 

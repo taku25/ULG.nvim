@@ -342,7 +342,7 @@ end
   }
   state.handle = unl_log_engine.create(spec)
 
-  unl_log_engine.batch_open({ state.handle }, "botright new", function()
+  unl_log_engine.batch_open({ state.handle }, conf.trace_position .. " new", function()
     if not (state.handle and state.handle:is_open()) then
       return
     end

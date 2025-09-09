@@ -42,6 +42,9 @@ local M = {
   render_chunk_size = 500,
   hide_timestamp = true,
 
+  --trace_log position
+  trace_position = "top", -- "right", "left", "bottom", "top", "tab"
+
  -- spark_chars = { " ", "▂", "▃", "▄", "▅", "▆", "▇" },
  spark_chars = { " ", "▂", "▃", "▄", "▅", "▆", "▇" },
 

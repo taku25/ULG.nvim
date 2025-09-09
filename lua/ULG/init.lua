@@ -37,8 +37,8 @@ function M.setup(user_opts)
     log.debug("ULG.nvim setup complete.")
   end
   
-  require("ULG.event.hub").setup()
-
+  -- require("ULG.event.hub").setup()
+  require("ULG.provider").setup()
   setup_done = true
 end
 
