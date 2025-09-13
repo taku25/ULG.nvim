@@ -39,6 +39,11 @@ end
 -- =============================================================================
 -- Keymap Callbacks (省略一切なし)
 -- =============================================================================
+function M.get_remote_commands()
+  local conf = require("UNL.config").get("ULG")
+  return (conf.remote and conf.remote.commands) or {}
+end
+
 function M.prompt_remote_command()
   local conf = require("UNL.config").get("ULG")
   vim.ui.input({ prompt = "UE Remote Command: ", completion = "customlist,ULG_CompleteRemoteCommands_VimFunc" }, function(input)
@@ -133,6 +138,13 @@ end
 -- =============================================================================
 
 function M.create_spec(conf)
+
+  vim.cmd([[
+    function! ULG_CompleteRemoteCommands_VimFunc(arglead, cmdline, cursorpos)
+      return v:lua.require('ULG.buf.log.ue').get_remote_commands()
+    endfunction
+  ]])
+
   local keymaps = { ["q"] = "<cmd>lua require('ULG.api').close()<cr>" }
   local keymap_name_to_func = {
     filter_prompt = "prompt_filter", filter_clear = "clear_filter", toggle_timestamp = "toggle_timestamp",
