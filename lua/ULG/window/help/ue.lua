@@ -77,7 +77,7 @@ function M.open()
   local help_win = vim.api.nvim_open_win(help_buf, true, win_opts)
   view_state.update_state({ help_win = help_win, help_buf = help_buf })
 
-  local close_cmd = "<cmd>lua require('ULG.window.help').close()<cr>"
+  local close_cmd = "<cmd>lua require('ULG.window.help.ue').close()<cr>"
   local map_opts = { noremap = true, silent = true }
   vim.api.nvim_buf_set_keymap(help_buf, "n", "q", close_cmd, map_opts)
   vim.api.nvim_buf_set_keymap(help_buf, "n", "<Esc>", close_cmd, map_opts)
