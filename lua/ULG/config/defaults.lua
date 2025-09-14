@@ -17,6 +17,29 @@ local M = {
     },
   },
 
+  safe_open = {
+    -- A list of buffer types to avoid.
+    -- See `:help buftype` for more options.
+    prevent_in_buftypes = {
+      "nofile",
+      "quickfix",
+      "help",
+      "terminal",
+      "prompt",
+      "unreal-log",
+      "build-log",
+      "ulg-trace",
+      "ulg-log",
+    },
+    -- A list of file types to avoid.
+    prevent_in_filetypes = {
+      "neo-tree",
+      "NvimTree",
+      "TelescopePrompt",
+      "fugitive",
+      "lazy",
+    },
+  },
 
   -- UEログ (主ウィンドウ) の設定
   position = "bottom", -- "right", "left", "bottom", "top", "tab"
@@ -35,7 +58,6 @@ local M = {
   enable_auto_close = true,
 
 
-  -- (以降の設定は変更ありません)
   filetype = "unreal-log",
   auto_scroll = true,
   polling_interval_ms = 500,

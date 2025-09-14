@@ -19,7 +19,7 @@ function M.create_spec(conf)
   return {
     id = "ulg_general_log", -- IDを汎用的な名前に
     title = "[[ General Log ]]", -- タイトルは通常、set_titleで上書きされる
-    filetype = "log", -- 汎用的な"log"ファイルタイプ
+    filetype = "ulg-log", -- 汎用的な"log"ファイルタイプ
     auto_scroll = true,
     keymaps = {
       -- ウィンドウを閉じるキーマップのみを設定
