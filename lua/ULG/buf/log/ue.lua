@@ -175,12 +175,53 @@ function M.create_spec(conf)
   }
 end
 
+-- lua/ULG/buf/log/ue.lua の M.start_tailing 関数（エラー修正版）
+
 function M.start_tailing(h, filepath, conf)
-  handle = h
+  handle = h -- モジュールレベルのハンドルは、他の関数からのアクセスのために保持
   master_lines = vim.fn.filereadable(filepath) == 1 and vim.fn.readfile(filepath) or {}
+
+  -- 初回表示は全更新 (フィルターのリセットもここで行う)
+  view_state.update_state({ filter_query = nil, category_filters = {}, search_query = nil, filters_enabled = true })
   refresh_view()
+
+  -- tailerのコールバックを、全更新ではなく差分更新に書き換える
   tailer = tail.start(filepath, conf.polling_interval_ms or 500, function(new_lines)
-    vim.list_extend(master_lines, new_lines); refresh_view()
+    -- 非同期コールバックは、引数で受け取った 'h' と 'conf' を直接参照します
+    if not (h and h:is_open()) or #new_lines == 0 then return end
+    local win_id = h:get_win_id()
+    if not (win_id and vim.api.nvim_win_is_valid(win_id)) then return end
+    local buf_id = vim.api.nvim_win_get_buf(win_id)
+
+    -- 1. 自動スクロールが必要か、更新前にチェックする
+    local line_count_before = vim.api.nvim_buf_line_count(buf_id)
+    local should_autoscroll = false
+    -- ★★★ ここが修正点です: 'h.spec.auto_scroll' -> 'conf.auto_scroll' ★★★
+    if conf.auto_scroll then
+      if line_count_before == 0 or vim.api.nvim_win_get_cursor(win_id)[1] == line_count_before then
+        should_autoscroll = true
+      end
+    end
+
+    -- 2. メモリ上のマスターデータには、常に全ログを保持
+    vim.list_extend(master_lines, new_lines)
+
+    -- 3. 表示用のデータは「新しい行」だけを処理する
+    local s = view_state.get_state()
+    local processed_new_lines = s.hide_timestamp and vim.tbl_map(function(line)
+      return line:gsub("%[%d+%.%d+%.%d+%-%d+%.%d+%.%d+:%d+%]%[%s*%d+%]%s*", "")
+    end, new_lines) or new_lines
+
+    -- 4. バッファの末尾に「新しい行だけ」を効率的に追記する
+    vim.api.nvim_set_option_value("modifiable", true, { buf = buf_id })
+    vim.api.nvim_buf_set_lines(buf_id, -1, -1, false, processed_new_lines)
+    vim.api.nvim_set_option_value("modifiable", false, { buf = buf_id })
+
+    -- 5. 必要ならカーソルを新しい最終行に移動させる
+    if should_autoscroll then
+      local new_end_line = line_count_before + #processed_new_lines
+      vim.api.nvim_win_set_cursor(win_id, { new_end_line, 0 })
+    end
   end)
 end
 
