@@ -43,7 +43,7 @@ local M = {
 
   -- UEログ (主ウィンドウ) の設定
   position = "bottom", -- "right", "left", "bottom", "top", "tab"
-  size = 0.25,         -- 画面全体に対する高さ/幅の割合 (0.0 ~ 1.0)
+  row_number = 15,         -- 画面全体に対する高さの行
 
   -- 汎用ログ (General Log) ウィンドウの設定
   general_log_enabled = true,
@@ -52,7 +52,7 @@ local M = {
   -- "primary": UEログが本来表示される位置に汎用ログを配置し、UEログを相対的に配置
   -- "bottom", "top", "left", "right", "tab": 画面に対し絶対位置で指定
   general_log_position = "secondary", 
-  general_log_size = 0.4, -- "secondary" "primary"時はUEログに対する割合、絶対指定時は画面全体に対する割合
+  general_log_size = 50, -- "secondary" "primary"時はUEログに対する割合、絶対指定時は画面全体に対する割合
 
   -- ログ以外の最後のウィンドウを閉じたら、ULGウィンドウも自動で閉じるか
   enable_auto_close = true,

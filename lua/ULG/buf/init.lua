@@ -64,67 +64,57 @@ function M.open_console(filepath)
   end
 
   local conf = require("UNL.config").get("ULG")
-
   local handles_to_open = {}
   local layout_cmd
 
   ue_log_handle = unl_log_engine.create(ue_log_view.create_spec(conf))
-  
-  -- ★ 設定名を変更 (general_log_enabled)
   if conf.general_log_enabled then
     general_log_handle = unl_log_engine.create(general_log_view.create_spec(conf))
   end
 
-  -- ★ 設定名を変更 (position)
-  local ue_pos = conf.position
-  local ue_abs_cmd
-  if ue_pos == "tab" then ue_abs_cmd = "tabnew"
-  elseif ue_pos == "top" then ue_abs_cmd = "topleft new"
-  elseif ue_pos == "left" then ue_abs_cmd = "topleft vnew"
-  elseif ue_pos == "right" then ue_abs_cmd = "botright vnew"
-  else ue_abs_cmd = "botright new" end
+  local function build_single_window_command(position, size)
+    local is_fixed_size = size and size >= 1
+    local size_prefix = is_fixed_size and tostring(math.floor(size)) or ""
+    local pos_cmd_map = {
+      top = "topleft new", left = "topleft vnew",
+      right = "botright vnew", tab = "tabnew"
+    }
+    local pos_cmd = pos_cmd_map[position] or "botright new"
+    return size_prefix .. " " .. pos_cmd
+  end
 
   if not conf.general_log_enabled then
+    -- UEログ単体の場合
     handles_to_open = { ue_log_handle }
-    layout_cmd = ue_abs_cmd
+    layout_cmd = build_single_window_command(conf.position, conf.size)
   else
-    -- ★ 設定名を変更 (general_log_position)
-    local general_pos = conf.general_log_position
-    if general_pos == 'primary' or general_pos == 'secondary' then
-      local base_cmd, relative_cmd
-      local base_handle, relative_handle
-      local is_base_horizontal = (ue_pos == "top" or ue_pos == "bottom")
-
-      if general_pos == 'primary' then
-        base_handle = general_log_handle -- ★ 変数名を変更
-        relative_handle = ue_log_handle
-        base_cmd = ue_abs_cmd
-        relative_cmd = is_base_horizontal and "aboveleft vnew" or "aboveleft new"
-      else -- 'secondary'
-        base_handle = ue_log_handle
-        relative_handle = general_log_handle -- ★ 変数名を変更
-        base_cmd = ue_abs_cmd
-        relative_cmd = is_base_horizontal and "rightbelow vnew" or "rightbelow new"
-      end
-      handles_to_open = { base_handle, relative_handle }
-      layout_cmd = base_cmd .. " | " .. relative_cmd
-    else
-      local general_abs_cmd
-      if general_pos == "tab" then general_abs_cmd = "tabnew"
-      elseif general_pos == "top" then general_abs_cmd = "topleft new"
-      elseif general_pos == "left" then general_abs_cmd = "topleft vnew"
-      elseif general_pos == "right" then general_abs_cmd = "botright vnew"
-      else general_abs_cmd = "botright new" end
-      handles_to_open = { ue_log_handle, general_log_handle } -- ★ 変数名を変更
-      layout_cmd = ue_abs_cmd .. " | " .. general_abs_cmd
+    -- UEログとGeneralログを両方開く場合の、正しいコマンド組み立て
+    local commands = {}
+    
+    -- 1. コンテナとなる水平ウィンドウを作成
+    local height = (conf.row_number and conf.row_number >= 1) and tostring(math.floor(conf.row_number)) or ""
+    table.insert(commands, " botright "..height .." new" )
+    
+    -- 2. そのウィンドウを垂直分割
+    table.insert(commands, "vsplit")
+    
+    -- 3. 右側のウィンドウのサイズを指定 (固定サイズの場合のみ)
+    if conf.general_log_size and conf.general_log_size >= 1 then
+      table.insert(commands, "wincmd l") -- 右に移動
+      table.insert(commands, "vertical resize " .. tostring(math.floor(conf.general_log_size)))
     end
+    
+    layout_cmd = table.concat(commands, " | ")
+
+    -- unl_log_engineは作成順にハンドルを割り当てると仮定
+    -- vsplitは左に新しいウィンドウを作るので、左がUE、右がGeneral
+    handles_to_open = { ue_log_handle, general_log_handle }
   end
-  
+
   unl_log_engine.batch_open(handles_to_open, layout_cmd, function(opened_handles)
     if ue_log_handle and ue_log_handle:is_open() then
       ue_log_view.start_tailing(ue_log_handle, filepath, conf)
     end
-    -- ★ 変数名と参照先を変更
     if conf.general_log_enabled and general_log_handle and general_log_handle:is_open() then
       general_log_view.set_handle(general_log_handle)
     end
