@@ -216,6 +216,7 @@ Run these commands inside your Unreal Engine project directory.
 :ULG start!     " Open a file picker to select a UE log file to tail.
 :ULG stop       " Stop tailing logs (keeps the windows open).
 :ULG close      " Close all log windows.
+:ULG crash      " Open the file picker to select a crash log.
 :ULG trace      " Open the most recent .utrace file in Saved/Profiling. Falls back to trace! if not found.
 :ULG trace!     " Open a .utrace picker to analyze and display information (can be slow on the first run as it generates a cache).
 ```

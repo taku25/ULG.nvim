@@ -4,6 +4,7 @@ local start_cmd = require("ULG.cmd.start")
 local stop_cmd = require("ULG.cmd.stop") -- ★ stop_cmdをrequire
 local close_cmd = require("ULG.cmd.close") -- ★ stop_cmdをrequire
 local trace_cmd = require("ULG.cmd.trace") -- ★ stop_cmdをrequire
+local crash_cmd = require("ULG.cmd.crash") -- 追加
 
 local M = {}
 
@@ -20,5 +21,8 @@ function M.close()
 end
 function M.trace(opts)
   trace_cmd.execute(opts)
+end
+function M.crash() -- 追加
+  crash_cmd.execute()
 end
 return M

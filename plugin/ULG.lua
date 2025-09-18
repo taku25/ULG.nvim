@@ -30,5 +30,10 @@ builder.create({
       bang = true, -- ! を受け付ける
       args = {},
     },
+    ["crash"] = { -- 追加
+      handler = function() api.crash() end,
+      desc = "Select and open a crash log file.",
+      args = {},
+    },
   },
 })

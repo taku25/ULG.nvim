@@ -145,7 +145,7 @@ return {
   hide_timestamp = true,
 
   keymaps = {
-      -- ログウィンドウ内でのキーマッ� �   
+      -- ログウィンドウ内でのキーマッ� �   
     log = {
       filter_prompt = "s",          -- 正規表現フィルターの入力
       filter_clear = "<Esc>",       -- 全フィルターのクリア
@@ -218,6 +218,7 @@ return {
 :ULG start!     " ファイルピッカーを開き、追跡したいUEログファイルを選択します。
 :ULG stop       " ログの追跡を停止します（ウィンドウは開いたままです）。
 :ULG close      " 全てのログウィンドウを閉じます。
+:ULG crash      " ファイルピッカーを開き、クラッシュをログを選択します
 :ULG trace      " saved/profiling 最も新しい.utraceを開きます。ない場合はtrace!と同じ挙動になります
 :ULG trace!     " utraceピッカーを開き、情報を解析＆表示を行います(キャッシュを生成するため初回は重いです)
 ```

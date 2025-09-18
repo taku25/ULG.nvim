@@ -118,6 +118,13 @@ function M.open_console(filepath)
     if conf.general_log_enabled and general_log_handle and general_log_handle:is_open() then
       general_log_view.set_handle(general_log_handle)
     end
+    -- 処理の最後に、unreal-log (ue_log_handle) のウィンドウにフォーカスを当てる
+    if ue_log_handle and ue_log_handle:is_open() then
+      local ue_win_id = ue_log_handle:get_win_id()
+      if ue_win_id then
+        vim.api.nvim_set_current_win(ue_win_id)
+      end
+    end
   end)
 end
 
