@@ -20,6 +20,7 @@
 `ULG.nvim` は、Unreal Engine のログフローを Neovim に統合するための、ログビューアです。
 Unreal-insightsの表示にも対応しており、スパークラインで各フレームの重さを確認、また['neo-tree-unl'](https://github.com/taku25/neo-tree-unl)を使えばinsightsの情報から関数に直接ジャンプできます。
 
+
 [`UNL.nvim`](https://github.com/taku25/UNL.nvim) ライブラリを基盤として構築されており、リアルタイムでのログ追跡、強力なフィルタリング、ログからのソースコードへのジャンプ機能などを提供します。
 
 その他、Unreal Engine開発を強化するためのプラグイン群 ([`UEP.nvim`](https://github.com/taku25/UEP.nvim), [`UBT.nvim`](https://github.com/taku25/UBT.nvim),[`UCM.nvim`](https://github.com/taku25/UCM.nvim)) があります。
@@ -281,6 +282,7 @@ Unreal Engine 関連プラグイン:
 *   [UEP.nvim](https://github.com/taku25/UEP.nvim) - Unreal Engine プロジェクトマネージャー
 *   [UBT.nvim](https://github.com/taku25/UBT.nvim) - Unreal Build Tool 連携
 *   [UCM.nvim](https://github.com/taku25/UBT.nvim) - Unreal Engine クラスマネージャー
+*   [tree-sitter for Unreal Engine](https://github.com/taku25/tree-sitter-unreal-cpp) - unreal cpp用tree-sitter
 
 ## 📜 ライセンス (License)
 MIT License
