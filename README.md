@@ -279,6 +279,7 @@ Other Unreal Engine related plugins:
 *   [UEP.nvim](https://github.com/taku25/UEP.nvim) - Unreal Engine Project Manager
 *   [UBT.nvim](https://github.com/taku25/UBT.nvim) - Unreal Build Tool Integration
 *   [UCM.nvim](https://github.com/taku25/UBT.nvim) - Unreal Engine Class Manager
+*   [tree-sitter-unreal-cpp](https://github.com/taku25/tree-sitter-unreal-cpp) - Unreal Engine tree-sitter
 
 ## 📜 License
 MIT License
