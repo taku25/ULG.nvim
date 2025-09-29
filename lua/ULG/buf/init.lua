@@ -18,15 +18,16 @@ function M.setup()
   local conf = require("UNL.config").get("ULG")
 
   -- TODO: UBT.nvim側で、このイベントのペイロードにファイルパスを含めるようにする
-  local unl_events = require("UNL.event.events")
-  local unl_event_types = require("UNL.event.types")
-  unl_events.subscribe(unl_event_types.ON_BEFORE_BUILD, function(payload)
-    -- general.lua を使ってビルドログの追跡を開始する
-    if payload and payload.log_file_path and general_log_handle and general_log_handle:is_open() then
-      general_log_view.set_title("[[ UBT Build LOG ]]")
-      general_log_view.start_tailing(payload.log_file_path)
-    end
-  end)
+  -- プロバイダー経由に変更のためイベント削除
+  -- local unl_events = require("UNL.event.events")
+  -- local unl_event_types = require("UNL.event.types")
+  -- unl_events.subscribe(unl_event_types.ON_BEFORE_BUILD, function(payload)
+  --   -- general.lua を使ってビルドログの追跡を開始する
+  --   if payload and payload.log_file_path and general_log_handle and general_log_handle:is_open() then
+  --     general_log_view.set_title("[[ UBT Build LOG ]]")
+  --     general_log_view.start_tailing(payload.log_file_path)
+  --   end
+  -- end)
 
   -- 自動閉鎖機能 (変更なし)
   if conf.enable_auto_close then

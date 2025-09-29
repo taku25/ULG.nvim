@@ -5,7 +5,7 @@ local log = require("ULG.logger")
 local tail = require("ULG.core.tail")
 
 local M = {}
-local handle, tailer
+local handle = nil
 
 --------------------------------------------------------------------------------
 -- Public API
@@ -59,60 +59,19 @@ end
 function M.is_open()
   return handle and handle:is_open()
 end
----
--- 指定されたファイルの追跡(tailing)を開始する
--- @param filepath string 監視対象のファイルパス
-function M.start_tailing(filepath, opts)
-  opts = opts or {}
-  if not (handle and handle:is_open()) then 
-    log.get().warn("General log window is not open. Cannot start tailing.")
-    return 
+
+
+-- 行をバッファに追記する
+-- @param lines string | string[]
+function M.append_lines(lines)
+  if not M.is_open() then return end
+
+  if type(lines) == "string" then
+    lines = { lines }
   end
-  
-  if tailer then tailer:stop() end
-  
-  M.clear_buffer()
-  local conf = require("UNL.config").get("ULG")
-  
-  tailer = tail.start(filepath, conf.polling_interval_ms or 200, function(new_lines)
-    if not (handle and handle:is_open()) then return end
-
-    local lines_to_add = {}
-    for _, line in ipairs(new_lines) do
-      local is_handled = false
-      if opts.on_line then
-        -- コールバックを呼び出し、戻り値でバッファに追加するか判断
-        is_handled = opts.on_line(line)
-      end
-      -- コールバックが存在しないか、falseを返した場合のみバッファに追加
-      if not is_handled then
-        table.insert(lines_to_add, line)
-      end
-    end
-
-    if #lines_to_add > 0 then
-      handle:add_lines(lines_to_add)
-    end
-  end)
-end
-
----
--- 現在のファイルの追跡を停止する
-function M.stop_tailing()
-  if tailer then
-    tailer:stop()
-    tailer = nil
-    log.get().debug("General log tailer stopped.")
-  end
-end
-
----
--- このウィンドウを閉じる (現在は司令官が一括で閉じるため、直接は使われない)
-function M.close()
-  M.stop_tailing()
-  if handle and handle:is_open() then
-    handle:close()
-    handle = nil
+  if #lines > 0 then
+    -- handleが持つAPIを呼び出して行を追加
+    handle:add_lines(lines)
   end
 end
 
