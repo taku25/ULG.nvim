@@ -104,6 +104,9 @@ local M = {
       last_frame = "G",            -- 最後のフレームへジャンプ
       show_help = "?", -- ★ この行を追加
     },
+    general_log = {
+      jump_to_source = "<CR>",
+    }
   },
 
   gantt = {

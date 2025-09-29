@@ -3,6 +3,7 @@
 local unl_log_engine = require("UNL.backend.buf.log")
 local log = require("ULG.logger")
 local tail = require("ULG.core.tail")
+local open_util = require("UNL.buf.open")
 
 local M = {}
 local handle = nil
@@ -10,24 +11,64 @@ local handle = nil
 --------------------------------------------------------------------------------
 -- Public API
 --------------------------------------------------------------------------------
-
 ---
 -- この汎用ビューアの仕様書(spec)を作成する
 -- @param conf table プラグインの設定テーブル
 -- @return table UNL.backend.buf.log.createに渡すためのspec
 function M.create_spec(conf)
+
+  local keymaps = { ["q"] = "<cmd>lua require('ULG.api').close()<cr>" }
+  local keymap_name_to_func = {
+    jump_to_source = "open_file_from_log",
+  }
+  
+  -- 2. ユーザー設定 (conf.keymaps.general_log) をループしてキーマップを構築
+  -- "general_log" という新しいセクションを読むようにします
+  for name, key in pairs(conf.keymaps.general_log or {}) do
+    local func_name = keymap_name_to_func[name]
+    if func_name and key then
+      -- ★★★ 呼び出すモジュールを 'ulg.actions' に変更 ★★★
+      keymaps[key] = string.format("<cmd>lua require('ULG.buf.log.general').%s()<cr>", func_name)
+    end
+  end
+
   return {
     id = "ulg_general_log", -- IDを汎用的な名前に
     title = "[[ General Log ]]", -- タイトルは通常、set_titleで上書きされる
-    filetype = "ulg-log", -- 汎用的な"log"ファイルタイプ
+    filetype = "ulg-general-log", -- 汎用的な"log"ファイルタイプ
     auto_scroll = true,
-    keymaps = {
-      -- ウィンドウを閉じるキーマップのみを設定
-      ["q"] = "<cmd>lua require('ULG.api').close()<cr>",
-      -- エラー箇所へのジャンプなどは、特定のコンテキスト(UBT実行時など)で
-      -- 動的に追加/削除するのが望ましいかもしれない
-    },
+    keymaps = keymaps,
   }
+end
+
+
+---
+-- ★★★ ここにアクション関数を移動 ★★★
+-- 現在のカーソル行からファイルパスと行番号を抽出し、ファイルを開く
+function M.open_file_from_log()
+  local line = vim.api.nvim_get_current_line()
+  local filepath, line_nr, col_nr
+  local result = vim.fn.matchlist(line, [[\v([A-Z]:[\\/].*(cpp|h|c))\((\d+),(\d+)\)]])
+  if #result >= 4 then
+    filepath = result[2]
+    line_nr = tonumber(result[4])
+    col_nr = tonumber(result[5])
+  end
+  line_nr = line_nr or 1 
+  if filepath and line_nr then
+    if vim.fn.filereadable(filepath) == 1 then
+    
+      open_util.safe({ file_path = filepath, open_cmd = "edit", plugin_name = "ULG" })
+      -- require("UNL.buf.open").safe({})
+      -- vim.cmd("edit " .. vim.fn.fnameescape(filepath))
+      --
+      vim.schedule(function()
+        vim.api.nvim_win_set_cursor(0, { tonumber(line_nr), 0 })
+      end);
+    else
+    end
+  else
+  end
 end
 
 ---
