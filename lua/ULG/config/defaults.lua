@@ -52,7 +52,7 @@ local M = {
   -- "primary": UEログが本来表示される位置に汎用ログを配置し、UEログを相対的に配置
   -- "bottom", "top", "left", "right", "tab": 画面に対し絶対位置で指定
   general_log_position = "secondary", 
-  general_log_size = 50, -- "secondary" "primary"時はUEログに対する割合、絶対指定時は画面全体に対する割合
+  general_log_size = 128, -- "secondary" "primary"時はUEログに対する割合、絶対指定時は画面全体に対する割合
 
   -- ログ以外の最後のウィンドウを閉じたら、ULGウィンドウも自動で閉じるか
   enable_auto_close = true,
