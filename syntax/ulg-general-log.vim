@@ -14,10 +14,10 @@ syn match ulgLogLineNr '(\d\+\(,\d\+\)\?)' contained
 
 " --- 2. 次に、行全体をハイライトする大きな入れ物を定義 ---
 "    contains=... で、中に上記のパーツが含まれることを許可する
-" 'error' という単語が含まれる行全体
-syn match ulgLogErrorLine /.*error.*/ contains=ulgLogFilePath
-" 'warning' という単語が含まれる行全体
-syn match ulgLogWarningLine /.*warning.*/ contains=ulgLogFilePath
+" 'error' という単語が含まれる行全体 (★ \c を追加して大文字・小文字を区別しない)
+syn match ulgLogErrorLine /\c.*error.*/ contains=ulgLogFilePath
+" 'warning' という単語が含まれる行全体 (★ \c を追加して大文字・小文字を区別しない)
+syn match ulgLogWarningLine /\c.*warning.*/ contains=ulgLogFilePath
 
 " --- その他のルール ---
 syn match ulgLogMeta "^\s*Log[a-zA-Z0-9_]\+:"
@@ -35,7 +35,8 @@ hi def link ulgLogLineNr      Number
 " その他
 hi def link ulgLogMeta        Type
 hi def link ulgLogObjectPath  String
-" Directoryグループの色を使いつつ、下線を追加する場合
+
+" (オプション) ファイルパスのスタイルをカスタマイズ
 highlight link ulgLogFilePath Directory
 highlight default ulgLogFilePath cterm=underline gui=underline
 

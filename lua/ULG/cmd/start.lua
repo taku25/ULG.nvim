@@ -47,7 +47,9 @@ function M.execute(opts)
       conf = require("UNL.config").get("ULG"),
       items = log_files,
       on_submit = function(selected_file)
-        if selected_file then start_with_file(selected_file) end
+        if selected_file then
+          start_with_file(selected_file)
+        end
       end,
     })
   else
