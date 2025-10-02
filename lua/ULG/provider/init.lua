@@ -30,6 +30,17 @@ M.setup = function()
       },
     })
 
+    unl_api.provider.register({
+      capability = "ulg.general_log",
+      name = "ULG.nvim",
+      impl = {
+        -- UBTから通知が来たら、buf_managerにそのまま渡す
+        notify = function(opts)
+          buf_manager.display_ubt_log(opts)
+        end,
+      },
+    })
+
     log.get().info("Registered ULG providers to UNL.nvim.")
   end
 end
