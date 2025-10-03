@@ -70,6 +70,9 @@ local M = {
  -- spark_chars = { " ", "▂", "▃", "▄", "▅", "▆", "▇" },
  spark_chars = { " ", "▂", "▃", "▄", "▅", "▆", "▇" },
 
+
+  -- local live coding path
+  live_coding_log_path = nil,
   keymaps = {
     log = {
       filter_prompt = "s",

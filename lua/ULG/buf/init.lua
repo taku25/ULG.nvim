@@ -2,6 +2,7 @@
 
 local unl_log_engine = require("UNL.backend.buf.log")
 local ue_log_view = require("ULG.buf.log.ue")
+local unl_finder = require("UNL.finder")
 local general_log_view = require("ULG.buf.log.general")
 local log = require("ULG.logger")
 local tail = require("ULG.core.tail")
@@ -18,10 +19,20 @@ local current_tailer = nil
 
 --- OSを判別して、Live Codingのログファイルパスを返す
 local function get_live_coding_log_path()
+   -- local candidate_paths = {}
+  local candidate_paths = {}
   if vim.fn.has("win32") == 1 then
+    local project = unl_finder.project.find_project(vim.loop.cwd())
+    if project and project.uproject then
+      local engine_root = unl_finder.engine.find_engine_root(project.uproject)
+      if engine_root then
+        table.insert(candidate_paths, engine_root .. "/Engine/Programs/UnrealBuildTool/Log.txt")
+      end
+    end
+
     local local_appdata = os.getenv("LOCALAPPDATA")
     if not local_appdata then return nil, "Could not get LOCALAPPDATA environment variable." end
-    return local_appdata .. "\\UnrealBuildTool\\Log.txt"
+    table.insert(candidate_paths, local_appdata .. "\\UnrealBuildTool\\Log.txt")
   elseif vim.fn.has("mac") == 1 then
     local home = os.getenv("HOME")
     if not home then return nil, "Could not get HOME directory." end
@@ -30,6 +41,13 @@ local function get_live_coding_log_path()
     local home = os.getenv("HOME")
     if not home then return nil, "Could not get HOME directory." end
     return home .. "/.config/UnrealBuildTool/Log.txt"
+  end
+  for _, path in ipairs(candidate_paths) do
+    if vim.fn.filereadable(path) == 1 then
+      print(path)
+      log.get().debug("Auto-detected Live Coding log path: %s", path)
+      return path, nil
+    end
   end
 end
 
@@ -120,12 +138,8 @@ function M.setup()
 end
 
 function M.open_console(filepath) -- filepath は nil の可能性がある
-  -- ▼▼▼ 変更点 1: 現在のウィンドウIDを保存 ▼▼▼
-  local original_win_id = vim.api.nvim_get_current_win()
-
   if ue_log_handle and ue_log_handle:is_open() then
-    vim.api.nvim_set_current_win(ue_log_handle:get_win_id())
-    return
+    vim.api.nvim_set_current_win(ue_log_handle:get_win_id()); return
   end
 
   local conf = require("UNL.config").get("ULG")
@@ -169,13 +183,12 @@ function M.open_console(filepath) -- filepath は nil の可能性がある
       general_log_view.set_handle(general_log_handle)
       M.start_live_coding_log()
     end
-
-    -- ▼▼▼ 変更点 2: 最後に元のウィンドウに戻る ▼▼▼
-    -- 元のウィンドウがまだ有効かを確認してからフォーカスを戻す
-    if vim.api.nvim_win_is_valid(original_win_id) then
-      vim.api.nvim_set_current_win(original_win_id)
+    if ue_log_handle and ue_log_handle:is_open() then
+      local ue_win_id = ue_log_handle:get_win_id()
+      if ue_win_id then
+        vim.api.nvim_set_current_win(ue_win_id)
+      end
     end
-    -- ▲▲▲ ここまで ▲▲▲
   end)
 end
 

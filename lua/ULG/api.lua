@@ -26,7 +26,11 @@ end
 function M.crash() -- 追加
   crash_cmd.execute()
 end
-function M.remote() -- 追加
-  remote_cmd.execute()
+function M.remote(opts) -- 追加
+  remote_cmd.execute(opts)
+end
+
+function M.remote_command(command) -- 追加
+  remote_cmd.execute_command(command)
 end
 return M

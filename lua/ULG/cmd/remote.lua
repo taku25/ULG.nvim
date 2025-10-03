@@ -22,4 +22,13 @@ function M.execute(opts)
   end)
 end
 
+function M.execute_command(command)
+  local conf = require("UNL.config").get("ULG")
+  unl_api.kismet_command({
+    command = command, host = (conf.remote and conf.remote.host), port = (conf.remote and conf.remote.port),
+    on_success = function() log.get().info("UE Command Sent: %s", input) end,
+    on_error = function(err) log.get().error("UE Command Failed: %s", err) end,
+  })
+end
+
 return M
