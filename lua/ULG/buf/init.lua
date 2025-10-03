@@ -76,7 +76,6 @@ function M.start_live_coding_log()
 
   if not (general_log_handle and general_log_handle:is_open()) then
     return
-    -- M.open_console() -- filepath無しで呼び出す
   end
 
   local on_new_lines = function(lines)
@@ -121,8 +120,12 @@ function M.setup()
 end
 
 function M.open_console(filepath) -- filepath は nil の可能性がある
+  -- ▼▼▼ 変更点 1: 現在のウィンドウIDを保存 ▼▼▼
+  local original_win_id = vim.api.nvim_get_current_win()
+
   if ue_log_handle and ue_log_handle:is_open() then
-    vim.api.nvim_set_current_win(ue_log_handle:get_win_id()); return
+    vim.api.nvim_set_current_win(ue_log_handle:get_win_id())
+    return
   end
 
   local conf = require("UNL.config").get("ULG")
@@ -166,12 +169,13 @@ function M.open_console(filepath) -- filepath は nil の可能性がある
       general_log_view.set_handle(general_log_handle)
       M.start_live_coding_log()
     end
-    if ue_log_handle and ue_log_handle:is_open() then
-      local ue_win_id = ue_log_handle:get_win_id()
-      if ue_win_id then
-        vim.api.nvim_set_current_win(ue_win_id)
-      end
+
+    -- ▼▼▼ 変更点 2: 最後に元のウィンドウに戻る ▼▼▼
+    -- 元のウィンドウがまだ有効かを確認してからフォーカスを戻す
+    if vim.api.nvim_win_is_valid(original_win_id) then
+      vim.api.nvim_set_current_win(original_win_id)
     end
+    -- ▲▲▲ ここまで ▲▲▲
   end)
 end
 
