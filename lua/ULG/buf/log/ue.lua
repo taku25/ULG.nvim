@@ -147,10 +147,16 @@ function M.create_spec(conf)
 
   local keymaps = { ["q"] = "<cmd>lua require('ULG.api').close()<cr>" }
   local keymap_name_to_func = {
-    filter_prompt = "prompt_filter", filter_clear = "clear_filter", toggle_timestamp = "toggle_timestamp",
-    clear_content = "clear_content", category_filter_prompt = "prompt_category_filter",
-    jump_to_source = "jump_to_source", filter_toggle = "toggle_filters", search_prompt = "prompt_search",
-    remote_command_prompt = "prompt_remote_command", jump_next_match = "jump_next",
+    filter_prompt = "prompt_filter",
+    filter_clear = "clear_filter",
+    toggle_timestamp = "toggle_timestamp",
+    clear_content = "clear_content",
+    category_filter_prompt = "prompt_category_filter",
+    jump_to_source = "jump_to_source",
+    filter_toggle = "toggle_filters",
+    search_prompt = "prompt_search",
+    remote_command_prompt = "prompt_remote_command",
+    jump_next_match = "jump_next",
     jump_prev_match = "jump_prev", show_help = "show_help",
   }
   for name, key in pairs(conf.keymaps.log or {}) do

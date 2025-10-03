@@ -35,5 +35,10 @@ builder.create({
       desc = "Select and open a crash log file.",
       args = {},
     },
+    ["remote"] = { -- 追加
+      handler = function() api.remote() end,
+      desc = "Remote Prompt to Unreal.",
+      args = {},
+    },
   },
 })

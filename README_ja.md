@@ -222,6 +222,7 @@ return {
 :ULG crash      " ファイルピッカーを開き、クラッシュをログを選択します
 :ULG trace      " saved/profiling 最も新しい.utraceを開きます。ない場合はtrace!と同じ挙動になります
 :ULG trace!     " utraceピッカーを開き、情報を解析＆表示を行います(キャッシュを生成するため初回は重いです)
+:ULG remote     " remote command をunreal engineに送ります。遅れるコマンドはkismet ライブラリーの関数です
 ```
 ### ログウィンドウでの操作
 * Pキー（デフォルト）: Unreal Editorに送信するリモートコマンドの入力プロンプトを開きます。プロンプトでは設定したコマンドの補完が利用できます。

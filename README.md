@@ -219,6 +219,7 @@ Run these commands inside your Unreal Engine project directory.
 :ULG crash      " Open the file picker to select a crash log.
 :ULG trace      " Open the most recent .utrace file in Saved/Profiling. Falls back to trace! if not found.
 :ULG trace!     " Open a .utrace picker to analyze and display information (can be slow on the first run as it generates a cache).
+:ULG remote     " Send a remote command to Unreal Engine using a function from the Kismet library.
 ```
 ### In the Log Window
 *   Press `P` (by default) to open an input prompt for sending remote commands to the Unreal Editor. Completion for configured commands is available.
