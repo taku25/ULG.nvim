@@ -11,6 +11,8 @@ function M.setup(user_opts)
   unl_log.setup("ULG", ulg_defaults, user_opts or {})
   local log = unl_log.get("ULG")
 
+  require("ULG.context.view_state").setup()
+
   -- ガントチャート用のカスタムハイライトグループを定義
   local gantt_colors = {
     -- 良い感じの色のリスト (https://github.com/sainnhe/gruvbox-material/blob/master/autoload/gruvbox_material.vim などを参考に)
@@ -29,6 +31,7 @@ function M.setup(user_opts)
     -- fg と bg に同じ色を設定すると、ブロックが見やすくなる
     vim.api.nvim_set_hl(0, "ULGGanttColor" .. i, { fg = color, bg = color })
   end
+
 
   local buf_manager = require("ULG.buf")
   buf_manager.setup()

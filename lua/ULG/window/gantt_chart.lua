@@ -3,15 +3,27 @@
 local M = {}
 
 local state = {
-  win = nil, buf = nil, trace_handle = nil, frame_data = nil,
-  display_opts = {}, is_showing_all = false,
+  win = nil,
+  buf = nil,
+  trace_handle = nil,
+  frame_data = nil,
+  display_opts = {},
+  is_showing_all = false,
 }
 
 local function close_window()
   if state.win and vim.api.nvim_win_is_valid(state.win) then
     vim.api.nvim_win_close(state.win, true)
   end
-  state = { win = nil, buf = nil, trace_handle = nil, frame_data = nil, display_opts = {}, is_showing_all = false, view_mode = "hierarchical" }
+  state = {
+    win = nil,
+    buf = nil,
+    trace_handle = nil,
+    frame_data = nil,
+    display_opts = {},
+    is_showing_all = false,
+    view_mode = "hierarchical",
+  }
 end
 
 local function redraw_buffer()

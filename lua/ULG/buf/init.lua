@@ -1,4 +1,4 @@
--- lua/ULG/buf/init.lua
+-- lua/ULG/buf/init.lua (ステートマネージャー対応版)
 
 local unl_log_engine = require("UNL.backend.buf.log")
 local ue_log_view = require("ULG.buf.log.ue")
@@ -10,17 +10,12 @@ local view_state = require("ULG.context.view_state")
 
 local M = {}
 
-local ue_log_handle
-local general_log_handle
-local current_tailer = nil
-
 --------------------------------------------------------------------------------
 -- 内部ヘルパー関数
 --------------------------------------------------------------------------------
 
 --- OSを判別して、Live Codingのログファイルパスを返す
 local function get_live_coding_log_path()
-   -- local candidate_paths = {}
   local candidate_paths = {}
   if vim.fn.has("win32") == 1 then
     local project = unl_finder.project.find_project(vim.loop.cwd())
@@ -56,21 +51,23 @@ end
 -- Public API
 --------------------------------------------------------------------------------
 
---- 現在実行中のログ監視があれば停止する
-function M.stop_current_tail()
-  if current_tailer then
-    current_tailer:stop()
-    current_tailer = nil
-    log.get().debug("Stopped current log tailer.")
+--- General Logの監視を停止する
+function M.stop_general_tail()
+  local s = view_state.get_state("general_log_view")
+  if s.tailer then
+    s.tailer:stop()
+    view_state.update_state("general_log_view", { tailer = nil })
+    log.get().debug("Stopped general log tailer.")
   end
 end
 
 --- Provider経由で呼び出され、UBTビルドログのデータを表示する
 function M.display_ubt_log(opts)
   opts = opts or {}
-  M.stop_current_tail()
+  M.stop_general_tail()
 
-  if not (general_log_handle and general_log_handle:is_open()) then
+  local s = view_state.get_state("general_log_view")
+  if not (s.handle and s.handle:is_open()) then
     return
   end
 
@@ -85,20 +82,20 @@ end
 
 --- Live Codingログの監視を開始する
 function M.start_live_coding_log()
-  M.stop_current_tail()
+  M.stop_general_tail()
 
   local log_path, err = get_live_coding_log_path()
   if err then
-    log.get().error(err); return
+    log.get().error(err)
+    return
   end
 
-
-  if not (general_log_handle and general_log_handle:is_open()) then
+  local s = view_state.get_state("general_log_view")
+  if not (s.handle and s.handle:is_open()) then
     return
   end
 
   local on_new_lines = function(lines)
-
     for _, line in ipairs(lines) do
       if line:find("Log started at", 1, true) then
         general_log_view.clear_buffer()
@@ -110,16 +107,19 @@ function M.start_live_coding_log()
   end
 
   log.get().info("Starting to tail Live Coding log: %s", log_path)
-  current_tailer = tail.start(log_path, 200, on_new_lines)
+  local new_tailer = tail.start(log_path, 200, on_new_lines)
+  view_state.update_state("general_log_view", { tailer = new_tailer })
 end
 
 function M.setup()
   local conf = require("UNL.config").get("ULG")
   if conf.enable_auto_close then
     local function check_and_close()
-      if not (ue_log_handle and ue_log_handle:is_open()) then return end
-      local ue_win_id = ue_log_handle:get_win_id()
-      local general_win_id = (general_log_handle and general_log_handle:get_win_id()) or -1
+      local ue_s = view_state.get_state("ue_log_view")
+      local gen_s = view_state.get_state("general_log_view")
+      if not (ue_s.handle and ue_s.handle:is_open()) then return end
+      local ue_win_id = ue_s.handle:get_win_id()
+      local general_win_id = (gen_s.handle and gen_s.handle:get_win_id()) or -1
       for _, win_id in ipairs(vim.api.nvim_list_wins()) do
         if win_id ~= ue_win_id and win_id ~= general_win_id then
           return
@@ -139,17 +139,25 @@ function M.setup()
 end
 
 function M.open_console(filepath) -- filepath は nil の可能性がある
-  if ue_log_handle and ue_log_handle:is_open() then
-    vim.api.nvim_set_current_win(ue_log_handle:get_win_id()); return
+  local s = view_state.get_state("ue_log_view")
+  if s.handle and s.handle:is_open() then
+    vim.api.nvim_set_current_win(s.handle:get_win_id())
+    return
   end
+
+  local ue_tailer = view_state.get_state("ue_log_view").tailer
+  if ue_tailer then ue_tailer:stop() end
+  M.stop_general_tail()
+  view_state.update_state("ue_log_view", { tailer = nil })
 
   local conf = require("UNL.config").get("ULG")
   local handles_to_open = {}
   local layout_cmd
 
-  ue_log_handle = unl_log_engine.create(ue_log_view.create_spec(conf))
+  local new_ue_log_handle = unl_log_engine.create(ue_log_view.create_spec(conf))
+  local new_general_log_handle
   if conf.general_log_enabled then
-    general_log_handle = unl_log_engine.create(general_log_view.create_spec(conf))
+    new_general_log_handle = unl_log_engine.create(general_log_view.create_spec(conf))
   end
 
   local function build_single_window_command(position, size)
@@ -161,7 +169,7 @@ function M.open_console(filepath) -- filepath は nil の可能性がある
   end
 
   if not conf.general_log_enabled then
-    handles_to_open = { ue_log_handle }
+    handles_to_open = { new_ue_log_handle }
     layout_cmd = build_single_window_command(conf.position, conf.size)
   else
     local commands = {}
@@ -173,19 +181,22 @@ function M.open_console(filepath) -- filepath は nil の可能性がある
       table.insert(commands, "vertical resize " .. tostring(math.floor(conf.general_log_size)))
     end
     layout_cmd = table.concat(commands, " | ")
-    handles_to_open = { ue_log_handle, general_log_handle }
+    handles_to_open = { new_ue_log_handle, new_general_log_handle }
   end
 
   unl_log_engine.batch_open(handles_to_open, layout_cmd, function(opened_handles)
-    if filepath and ue_log_handle and ue_log_handle:is_open() then
-      ue_log_view.start_tailing(ue_log_handle, filepath, conf)
+    view_state.update_state("ue_log_view", { handle = new_ue_log_handle })
+    view_state.update_state("general_log_view", { handle = new_general_log_handle })
+    view_state.update_state("ULG", { is_active = true })
+
+    if filepath and new_ue_log_handle and new_ue_log_handle:is_open() then
+      ue_log_view.start_tailing(filepath, conf)
     end
-    if conf.general_log_enabled and general_log_handle and general_log_handle:is_open() then
-      general_log_view.set_handle(general_log_handle)
+    if conf.general_log_enabled and new_general_log_handle and new_general_log_handle:is_open() then
       M.start_live_coding_log()
     end
-    if ue_log_handle and ue_log_handle:is_open() then
-      local ue_win_id = ue_log_handle:get_win_id()
+    if new_ue_log_handle and new_ue_log_handle:is_open() then
+      local ue_win_id = new_ue_log_handle:get_win_id()
       if ue_win_id then
         vim.api.nvim_set_current_win(ue_win_id)
       end
@@ -194,15 +205,20 @@ function M.open_console(filepath) -- filepath は nil の可能性がある
 end
 
 function M.close_console()
-  M.stop_current_tail()
-  if general_log_handle and general_log_handle:is_open() then
-    general_log_handle:close()
+  local ue_s = view_state.get_state("ue_log_view")
+  local gen_s = view_state.get_state("general_log_view")
+
+  if gen_s.tailer then gen_s.tailer:stop() end
+  if ue_s.tailer then ue_s.tailer:stop() end
+
+  if gen_s.handle and gen_s.handle:is_open() then
+    gen_s.handle:close()
   end
-  if ue_log_handle and ue_log_handle:is_open() then
-    ue_log_handle:close()
+  if ue_s.handle and ue_s.handle:is_open() then
+    ue_s.handle:close()
   end
-  general_log_handle, ue_log_handle, current_tailer = nil, nil, nil
-  view_state.update_state({ is_watching = false });
+
+  view_state.reset_all_states()
 end
 
 return M

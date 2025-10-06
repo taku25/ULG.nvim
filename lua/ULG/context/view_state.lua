@@ -1,67 +1,81 @@
--- lua/ULG/context/view_state.lua
--- Manages the viewer's state using UNL.context
+-- lua/ULG/context/view_state.lua (ステートマネージャーとして再構築)
 
 local unl_context = require("UNL.context")
 
--- Use a specific key within the "ULG" namespace
-local state_handle = unl_context.use("ULG"):key("viewer_state")
-
 local M = {}
 
-local function get_default_state()
-  return {
-    master_buf = nil,
-    view_buf = nil,
-    win = nil,
-    watcher = nil,
-    filepath = nil,
-    filter_query = nil,
-    category_filters = {},
-    filters_enabled = true,
-    search_query = nil,
-    search_hl_id = nil,
-    line_queue = {},
-    is_processing = false,
-    help_win = nil,
-    help_buf = nil,
-    original_win = nil, -- The window to return to
-    -- Pulled from config
-    position = "bottom",
-    vertical_size = 80,
-    horizontal_size = 15,
-    win_open_command = nil,
-    filetype = "unreal-log",
-    auto_scroll = true,
-    polling_interval_ms = 500,
-    render_chunk_size = 500,
-    hide_timestamp = true,
-    keymaps = {},
-    help = {},
-    highlights = {},
-    is_watching = false
-  }
+-- UNL.contextを使って状態を永続化するためのハンドル
+local context_handle = unl_context.use("ULG"):key("view_state_v2")
+
+-- 内部で全ての状態を保持するテーブル
+local _state_data = {}
+local _default_states = {}
+
+-- 状態モジュールを登録する内部関数
+local function register_state(name, defaults_path)
+  local defaults = require(defaults_path)
+  _default_states[name] = defaults
+  _state_data[name] = vim.deepcopy(defaults) -- 初回はデフォルト値をコピー
 end
 
--- Get the current state, or the default if it doesn't exist yet
-function M.get_state()
-  return state_handle:get("main") or get_default_state()
+-- プラグイン起動時に全ての状態モジュールを初期化する
+function M.setup()
+  _state_data = {}
+  _default_states = {}
+  
+  -- 各状態モジュールを登録
+  register_state("ULG", "ULG.context.ulg_context_defaults")
+  register_state("general_log_view", "ULG.context.general_log_view_context_defaults")
+  register_state("ue_log_view", "ULG.context.ue_log_view_context_defaults")
+  register_state("trace_log_view", "ULG.context.trace_log_view_context_defaults")
+
+  -- UNL.contextから保存されたデータを読み込み、デフォルト値とマージ
+  local loaded_data = context_handle:get("main")
+  if loaded_data then
+    _state_data = vim.tbl_deep_extend("force", _state_data, loaded_data)
+  end
 end
 
--- Update the state with new values
-function M.update_state(new_values)
-  if not new_values then return end
-  local current_state = M.get_state()
-  -- Merge the new values into the current state
-  local updated = vim.tbl_deep_extend("force", current_state, new_values)
-  state_handle:set("main", updated)
+-- 状態をUNL.contextに保存する
+local function save_all_states()
+  context_handle:set("main", _state_data)
 end
 
--- Reset the state to its default values
-function M.reset_state()
-  state_handle:set("main", get_default_state())
+--- 指定したモジュールの状態を取得する
+-- @param name string 状態モジュールの名前 (e.g., "ue_log_view")
+-- @return table|nil そのモジュールの現在の状態テーブル
+function M.get_state(name)
+  return _state_data[name]
 end
 
--- Initialize the state when the module is first loaded
-M.reset_state()
+--- 指定したモジュールの状態を更新する
+-- @param name string 状態モジュールの名前
+-- @param new_values table 更新したい値を含むテーブル
+function M.update_state(name, new_values)
+  if not _state_data[name] or not new_values then return end
+  
+  _state_data[name] = vim.tbl_deep_extend("force", _state_data[name], new_values)
+  save_all_states() -- 更新があるたびに保存
+end
+
+--- 指定したモジュールの状態をデフォルト値にリセットする
+-- @param name string 状態モジュールの名前
+function M.reset_state(name)
+  if _default_states[name] then
+    _state_data[name] = vim.deepcopy(_default_states[name])
+    save_all_states()
+  end
+end
+
+--- 全ての状態をデフォルト値にリセットする
+function M.reset_all_states()
+  for name, defaults in pairs(_default_states) do
+    _state_data[name] = vim.deepcopy(defaults)
+  end
+  save_all_states()
+end
+
+-- モジュールが読み込まれた時に初期化を実行
+M.setup()
 
 return M

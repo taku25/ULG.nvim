@@ -1,4 +1,4 @@
--- lua/ULG/buf/log/ue.lua (マネージャー対応・最終完成版)
+-- lua/ULG/buf/log/ue.lua (ステートマネージャー対応版)
 
 local unl_picker = require("UNL.backend.picker")
 local view_state = require("ULG.context.view_state")
@@ -9,22 +9,22 @@ local filter = require("ULG.core.filter")
 local log = require("ULG.logger")
 
 local M = {}
-local handle, tailer, master_lines
 
 -- =============================================================================
 -- Private Helper: View Refresh Logic
 -- =============================================================================
 local function refresh_view()
-  if not (handle and handle:is_open()) then return end
-  local s = view_state.get_state()
-  local buf_id = vim.api.nvim_win_get_buf(handle:get_win_id())
+  local s = view_state.get_state("ue_log_view")
+  if not (s.handle and s.handle:is_open()) then return end
+
+  local buf_id = vim.api.nvim_win_get_buf(s.handle:get_win_id())
   local processed_lines = {}
   if s.hide_timestamp then
-    for _, line in ipairs(master_lines) do
+    for _, line in ipairs(s.master_lines) do
       table.insert(processed_lines, (line:gsub("%[%d+%.%d+%.%d+%-%d+%.%d+%.%d+:%d+%]%[%s*%d+%]%s*", "")))
     end
   else
-    processed_lines = master_lines
+    processed_lines = s.master_lines
   end
   local final_lines = filter.apply(processed_lines, {
     filters_enabled = s.filters_enabled,
@@ -37,7 +37,7 @@ local function refresh_view()
 end
 
 -- =============================================================================
--- Keymap Callbacks (省略一切なし)
+-- Keymap Callbacks
 -- =============================================================================
 function M.get_remote_commands()
   local conf = require("UNL.config").get("ULG")
@@ -55,11 +55,14 @@ function M.prompt_remote_command()
     })
   end)
 end
+
 function M.jump_to_source()
-  if not (handle and handle:is_open()) then
+  local s = view_state.get_state("ue_log_view")
+  if not (s.handle and s.handle:is_open()) then
     return
   end
-  local line = vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(handle:get_win_id()), vim.api.nvim_win_get_cursor(handle:get_win_id())[1] - 1, vim.api.nvim_win_get_cursor(handle:get_win_id())[1], false)[1]
+  local win_id = s.handle:get_win_id()
+  local line = vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(win_id), vim.api.nvim_win_get_cursor(win_id)[1] - 1, vim.api.nvim_win_get_cursor(win_id)[1], false)[1]
   if not line then
     return
   end
@@ -72,34 +75,38 @@ function M.jump_to_source()
     log.get().info("No source location found on this line.")
   end
 end
+
 function M.prompt_filter()
-  vim.ui.input({ prompt = "Filter Log (regex):", default = view_state.get_state().filter_query or "" }, function(input)
-    if input == nil then
-      return
-    end
-    view_state.update_state({ filter_query = input, filters_enabled = true }); refresh_view()
+  local current_query = view_state.get_state("ue_log_view").filter_query or ""
+  vim.ui.input({ prompt = "Filter Log (regex):", default = current_query }, function(input)
+    if input == nil then return end
+    view_state.update_state("ue_log_view", { filter_query = input, filters_enabled = true }); refresh_view()
   end)
 end
+
 function M.clear_filter()
-  view_state.update_state({ filter_query = nil, category_filters = {}, search_query = nil, filters_enabled = true }); refresh_view()
+  view_state.update_state("ue_log_view", { filter_query = nil, category_filters = {}, search_query = nil, filters_enabled = true }); refresh_view()
 end
+
 function M.toggle_timestamp()
-  view_state.update_state({ hide_timestamp = not view_state.get_state().hide_timestamp }); refresh_view()
+  local s = view_state.get_state("ue_log_view")
+  view_state.update_state("ue_log_view", { hide_timestamp = not s.hide_timestamp }); refresh_view()
 end
+
 function M.clear_content()
-  master_lines = {}
+  view_state.update_state("ue_log_view", { master_lines = {} })
   refresh_view()
   log.get().info("Log content cleared.")
 end
 
 function M.prompt_category_filter()
+  local s = view_state.get_state("ue_log_view")
   local categories_set = {}
-  for _, line in ipairs(master_lines) do
+  for _, line in ipairs(s.master_lines) do
     local category = line:match("%s*([a-zA-Z][a-zA-Z0-9_]*):")
     if category and #category > 1 then categories_set[category] = true end
   end
-  local categories_list = {
-  }
+  local categories_list = {}
   for category, _ in pairs(categories_set) do table.insert(categories_list, category) end
   table.sort(categories_list)
   if #categories_list == 0 then
@@ -110,25 +117,33 @@ function M.prompt_category_filter()
     items = categories_list, multi_select = true,
     on_submit = function(selected)
       if not selected then return end
-      view_state.update_state({ category_filters = selected, filters_enabled = true }); refresh_view()
+      view_state.update_state("ue_log_view", { category_filters = selected, filters_enabled = true }); refresh_view()
     end,
   })
 end
+
 function M.toggle_filters()
-  view_state.update_state({ filters_enabled = not view_state.get_state().filters_enabled }); refresh_view()
+  local s = view_state.get_state("ue_log_view")
+  view_state.update_state("ue_log_view", { filters_enabled = not s.filters_enabled }); refresh_view()
 end
+
 function M.prompt_search()
-  vim.ui.input({ prompt = "Highlight in View (regex):", default = view_state.get_state().search_query or "" }, function(input)
+  local current_query = view_state.get_state("ue_log_view").search_query or ""
+  vim.ui.input({ prompt = "Highlight in View (regex):", default = current_query }, function(input)
     if input == nil then return end
-    view_state.update_state({ search_query = input }); log.get().debug("Search highlighting not fully implemented yet.")
+    view_state.update_state("ue_log_view", { search_query = input });
+    log.get().debug("Search highlighting not fully implemented yet.")
   end)
 end
+
 function M.jump_next()
   log.get().debug("Jump to next match (not implemented yet)")
 end
+
 function M.jump_prev()
   log.get().debug("Jump to prev match (not implemented yet)")
 end
+
 function M.show_help()
   help_window.toggle()
 end
@@ -138,7 +153,6 @@ end
 -- =============================================================================
 
 function M.create_spec(conf)
-
   vim.cmd([[
     function! ULG_CompleteRemoteCommands_VimFunc(arglead, cmdline, cursorpos)
       return v:lua.require('ULG.buf.log.ue').get_remote_commands()
@@ -181,59 +195,59 @@ function M.create_spec(conf)
   }
 end
 
--- lua/ULG/buf/log/ue.lua の M.start_tailing 関数（エラー修正版）
+function M.start_tailing(filepath, conf)
+  local initial_lines = vim.fn.filereadable(filepath) == 1 and vim.fn.readfile(filepath) or {}
+  view_state.update_state("ue_log_view", {
+    master_lines = initial_lines,
+    filter_query = nil,
+    category_filters = {},
+    search_query = nil,
+    filters_enabled = true,
+    is_watching = true,
+  })
 
-function M.start_tailing(h, filepath, conf)
-  handle = h -- モジュールレベルのハンドルは、他の関数からのアクセスのために保持
-  master_lines = vim.fn.filereadable(filepath) == 1 and vim.fn.readfile(filepath) or {}
-
-  -- 初回表示は全更新 (フィルターのリセットもここで行う)
-  view_state.update_state({ filter_query = nil, category_filters = {}, search_query = nil, filters_enabled = true, is_watching = true })
   refresh_view()
 
-  -- tailerのコールバックを、全更新ではなく差分更新に書き換える
-  tailer = tail.start(filepath, conf.polling_interval_ms or 500, function(new_lines)
-    -- 非同期コールバックは、引数で受け取った 'h' と 'conf' を直接参照します
-    if not (h and h:is_open()) or #new_lines == 0 then return end
-    local win_id = h:get_win_id()
+  local new_tailer = tail.start(filepath, conf.polling_interval_ms or 500, function(new_lines)
+    local s = view_state.get_state("ue_log_view")
+    if not (s.handle and s.handle:is_open()) or #new_lines == 0 then return end
+
+    local win_id = s.handle:get_win_id()
     if not (win_id and vim.api.nvim_win_is_valid(win_id)) then return end
     local buf_id = vim.api.nvim_win_get_buf(win_id)
 
-    -- 1. 自動スクロールが必要か、更新前にチェックする
     local line_count_before = vim.api.nvim_buf_line_count(buf_id)
     local should_autoscroll = false
-    -- ★★★ ここが修正点です: 'h.spec.auto_scroll' -> 'conf.auto_scroll' ★★★
-    if conf.auto_scroll then
-      if line_count_before == 0 or vim.api.nvim_win_get_cursor(win_id)[1] == line_count_before then
-        should_autoscroll = true
-      end
+    if conf.auto_scroll and (line_count_before == 0 or vim.api.nvim_win_get_cursor(win_id)[1] == line_count_before) then
+      should_autoscroll = true
     end
 
-    -- 2. メモリ上のマスターデータには、常に全ログを保持
-    vim.list_extend(master_lines, new_lines)
+    vim.list_extend(s.master_lines, new_lines)
+    view_state.update_state("ue_log_view", { master_lines = s.master_lines })
 
-    -- 3. 表示用のデータは「新しい行」だけを処理する
-    local s = view_state.get_state()
     local processed_new_lines = s.hide_timestamp and vim.tbl_map(function(line)
       return line:gsub("%[%d+%.%d+%.%d+%-%d+%.%d+%.%d+:%d+%]%[%s*%d+%]%s*", "")
     end, new_lines) or new_lines
 
-    -- 4. バッファの末尾に「新しい行だけ」を効率的に追記する
-    vim.api.nvim_set_option_value("modifiable", true, { buf = buf_id })
-    vim.api.nvim_buf_set_lines(buf_id, -1, -1, false, processed_new_lines)
-    vim.api.nvim_set_option_value("modifiable", false, { buf = buf_id })
+    local filtered_new_lines = filter.apply(processed_new_lines, {
+        filters_enabled = s.filters_enabled,
+        category_filters = s.category_filters,
+        filter_query = s.filter_query,
+    })
 
-    -- 5. 必要ならカーソルを新しい最終行に移動させる
+    if #filtered_new_lines > 0 then
+      vim.api.nvim_set_option_value("modifiable", true, { buf = buf_id })
+      vim.api.nvim_buf_set_lines(buf_id, -1, -1, false, filtered_new_lines)
+      vim.api.nvim_set_option_value("modifiable", false, { buf = buf_id })
+    end
+
     if should_autoscroll then
-      local new_end_line = line_count_before + #processed_new_lines
+      local new_end_line = vim.api.nvim_buf_line_count(buf_id)
       vim.api.nvim_win_set_cursor(win_id, { new_end_line, 0 })
     end
   end)
-end
 
-function M.stop_tailing()
-  if tailer then tailer:stop(); tailer = nil end
-  handle = nil
+  view_state.update_state("ue_log_view", { tailer = new_tailer })
 end
 
 return M
