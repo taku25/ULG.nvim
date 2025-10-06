@@ -6,6 +6,7 @@ local unl_finder = require("UNL.finder")
 local general_log_view = require("ULG.buf.log.general")
 local log = require("ULG.logger")
 local tail = require("ULG.core.tail")
+local view_state = require("ULG.context.view_state")
 
 local M = {}
 
@@ -201,6 +202,7 @@ function M.close_console()
     ue_log_handle:close()
   end
   general_log_handle, ue_log_handle, current_tailer = nil, nil, nil
+  view_state.update_state({ is_watching = false });
 end
 
 return M

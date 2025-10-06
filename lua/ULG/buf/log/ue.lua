@@ -188,7 +188,7 @@ function M.start_tailing(h, filepath, conf)
   master_lines = vim.fn.filereadable(filepath) == 1 and vim.fn.readfile(filepath) or {}
 
   -- 初回表示は全更新 (フィルターのリセットもここで行う)
-  view_state.update_state({ filter_query = nil, category_filters = {}, search_query = nil, filters_enabled = true })
+  view_state.update_state({ filter_query = nil, category_filters = {}, search_query = nil, filters_enabled = true, is_watching = true })
   refresh_view()
 
   -- tailerのコールバックを、全更新ではなく差分更新に書き換える
