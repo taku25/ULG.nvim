@@ -1,28 +1,28 @@
--- lua/ULG/window/help.lua
--- ヘルプウィンドウの表示に特化したUIコンポーネント
+-- lua/ULG/window/help/ue.lua (ステートマネージャー対応版)
 
-local view_state = require("ULG.context.view_state")
-local help_lines_template = require("ULG.config.help")
 local unl_config = require("UNL.config")
+local help_lines_template = require("ULG.config.help")
+local view_state = require("ULG.context.view_state") -- 位置計算のために必要
+local window_state = require("ULG.context.window_state") -- 自身の状態管理のため
 
 local M = {}
 
 --- ヘルプウィンドウを閉じる
 function M.close()
-  local s = view_state.get_state()
-  if s.help_win and vim.api.nvim_win_is_valid(s.help_win) then
-    vim.api.nvim_win_close(s.help_win, true)
+  local s = window_state.get_state("help_ue")
+  if s.win and vim.api.nvim_win_is_valid(s.win) then
+    vim.api.nvim_win_close(s.win, true)
   end
-  if s.help_buf and vim.api.nvim_buf_is_valid(s.help_buf) then
-    vim.api.nvim_buf_delete(s.help_buf, { force = true })
+  if s.buf and vim.api.nvim_buf_is_valid(s.buf) then
+    vim.api.nvim_buf_delete(s.buf, { force = true })
   end
-  view_state.update_state({ help_win = nil, help_buf = nil })
+  window_state.reset_state("help_ue")
 end
 
 --- ヘルプウィンドウを開く
 function M.open()
-  local s = view_state.get_state()
-  if s.help_win and vim.api.nvim_win_is_valid(s.help_win) then
+  local s = window_state.get_state("help_ue")
+  if s.win and vim.api.nvim_win_is_valid(s.win) then
     return
   end
 
@@ -42,20 +42,17 @@ function M.open()
   vim.api.nvim_buf_set_lines(help_buf, 0, -1, false, final_help_lines)
   vim.api.nvim_set_option_value("modifiable", false, { buf = help_buf })
 
-  -- ★★★ ここからがウィンドウ位置計算の修正箇所です ★★★
+  -- メインのログビューの状態を取得して、ウィンドウ位置を計算
+  local ue_log_s = view_state.get_state("ue_log_view")
+  local log_win_id = ue_log_s and ue_log_s.handle and ue_log_s.handle:get_win_id()
 
-  local log_win_id = s.win
   local win_opts = { style = "minimal", border = (conf.help and conf.help.border) or "rounded" }
-
   local height = #final_help_lines
 
   if log_win_id and vim.api.nvim_win_is_valid(log_win_id) then
-    -- ログウィンドウが有効な場合、その上に中央表示する
     local log_win_width = vim.api.nvim_win_get_width(log_win_id)
     local log_win_height = vim.api.nvim_win_get_height(log_win_id)
-
     local width = math.min(math.floor(log_win_width * 0.9), 80)
-
     win_opts.relative = "win"
     win_opts.win = log_win_id
     win_opts.width = width
@@ -63,7 +60,6 @@ function M.open()
     win_opts.row = math.floor((log_win_height - height) / 2)
     win_opts.col = math.floor((log_win_width - width) / 2)
   else
-    -- フォールバック：エディタ全体の中央に表示
     local width = math.min(math.floor(vim.o.columns * 0.8), 80)
     win_opts.relative = "editor"
     win_opts.width = width
@@ -72,10 +68,10 @@ function M.open()
     win_opts.col = math.floor((vim.o.columns - width) / 2)
   end
 
-  -- ★★★ 修正箇所ここまで ★★★
-
   local help_win = vim.api.nvim_open_win(help_buf, true, win_opts)
-  view_state.update_state({ help_win = help_win, help_buf = help_buf })
+  
+  -- 自身の状態を更新
+  window_state.update_state("help_ue", { win = help_win, buf = help_buf })
 
   local close_cmd = "<cmd>lua require('ULG.window.help.ue').close()<cr>"
   local map_opts = { noremap = true, silent = true }
@@ -87,8 +83,8 @@ end
 
 --- ヘルプウィンドウの表示/非表示を切り替える
 function M.toggle()
-  local s = view_state.get_state()
-  if s.help_win and vim.api.nvim_win_is_valid(s.help_win) then
+  local s = window_state.get_state("help_ue")
+  if s.win and vim.api.nvim_win_is_valid(s.win) then
     M.close()
   else
     M.open()

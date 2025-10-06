@@ -240,26 +240,34 @@ Add the following to your `lualine` configuration:
 -- lualine.lua
 
 -- Define the lualine component
-local ulg_component = {
-  -- 1. A function that returns the content to display
-  function()
-    local ok, view_state = pcall(require, "ULG.context.view_state")
-    if not ok then return "" end
+  local ulg_component = {
+    -- 1. 表示する内容を返す関数
+    function()
+      if require("lazy.core.config").plugins["ULG.nvim"]._.loaded then
+        local ok, view_state = pcall(require, "ULG.context.view_state")
+        if not ok then return "" end
 
-    local s = view_state.get_state()
-    if s and s.is_watching == true and s.filepath then
-      return "👀 ULG: " .. vim.fn.fnamemody(s.filepath, ":t")
-    end
-    return ""
-  end,
-  -- 2. A condition function that determines whether to show the component
-  cond = function()
-    local ok, view_state = pcall(require, "ULG.context.view_state")
-    if not ok then return false end
-    local s = view_state.get_state()
-    return s and s.is_watching == true
-  end,
-}
+
+        local s = view_state.get_state("ULG")
+        if s and s.is_active == true then
+          return "👀 ULG: " .. vim.fn.fnamemodify(s.filepath, ":t")
+        end
+      end
+      return ""
+    end,
+    cond = function()
+      if require("lazy.core.config").plugins["ULG.nvim"]._.loaded then
+        local ok, view_state = pcall(require, "ULG.context.view_state")
+        if not ok then return false end
+        local s = view_state.get_state("ULG")
+        if s and s.is_active == true then
+          return true
+        end
+        return false
+      end
+      return false
+    end,
+  }
 
 -- Example lualine setup
 require('lualine').setup({

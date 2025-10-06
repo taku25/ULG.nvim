@@ -1,4 +1,6 @@
--- lua/ULG/window/trace_tree.lua (modifiableバグ修正版)
+-- lua/ULG/window/callees.lua (ステートマネージャー対応版)
+
+local window_state = require("ULG.context.window_state")
 
 local M = {}
 
@@ -18,6 +20,12 @@ local function format_events_to_lines(events, depth)
 end
 
 function M.open(frame_data)
+  local s = window_state.get_state("callees")
+  if s.win and vim.api.nvim_win_is_valid(s.win) then
+    vim.api.nvim_set_current_win(s.win)
+    return
+  end
+
   local lines = format_events_to_lines(frame_data.events_tree)
   
   local buf = vim.api.nvim_create_buf(false, true)
@@ -25,11 +33,9 @@ function M.open(frame_data)
   vim.bo[buf].swapfile = false
   vim.bo[buf].filetype = "ulg-trace"
 
-  -- ★★★ ここからが修正箇所です ★★★
   vim.api.nvim_set_option_value("modifiable", true, { buf = buf })
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
-  -- ★★★ 修正箇所ここまで ★★★
 
   local width = math.floor(vim.o.columns * 0.8)
   local height = math.floor(vim.o.lines * 0.8)
@@ -41,12 +47,18 @@ function M.open(frame_data)
     row = row, col = col, style = "minimal", border = "rounded",
   })
   
+  -- 状態を更新
+  window_state.update_state("callees", { win = win, buf = buf })
+  
   vim.api.nvim_buf_set_keymap(buf, "n", "q", "", {
     noremap = true, silent = true,
     callback = function()
-      if vim.api.nvim_win_is_valid(win) then
-        vim.api.nvim_win_close(win, true)
+      local current_s = window_state.get_state("callees")
+      if current_s.win and vim.api.nvim_win_is_valid(current_s.win) then
+        vim.api.nvim_win_close(current_s.win, true)
       end
+      -- 状態をリセット
+      window_state.reset_state("callees")
     end
   })
 end

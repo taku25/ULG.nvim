@@ -12,7 +12,7 @@ function M.setup(user_opts)
   local log = unl_log.get("ULG")
 
   require("ULG.context.view_state").setup()
-
+  require("ULG.context.window_state").setup()
   -- ガントチャート用のカスタムハイライトグループを定義
   local gantt_colors = {
     -- 良い感じの色のリスト (https://github.com/sainnhe/gruvbox-material/blob/master/autoload/gruvbox_material.vim などを参考に)

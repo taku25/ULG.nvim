@@ -246,21 +246,29 @@ return {
 local ulg_component = {
   -- 1. 表示する内容を返す関数
   function()
-    local ok, view_state = pcall(require, "ULG.context.view_state")
-    if not ok then return "" end
+    if require("lazy.core.config").plugins["ULG.nvim"]._.loaded then
+      local ok, view_state = pcall(require, "ULG.context.view_state")
+      if not ok then return "" end
 
-    local s = view_state.get_state()
-    if s and s.is_watching == true and s.filepath then
-      return "👀 ULG: " .. vim.fn.fnamemodify(s.filepath, ":t")
+
+      local s = view_state.get_state("ULG")
+      if s and s.is_active == true then
+        return "👀 ULG: " .. vim.fn.fnamemodify(s.filepath, ":t")
+      end
     end
     return ""
   end,
-  -- 2. コンポーネントを表示するかどうかを決定する `cond` (condition) 関数
   cond = function()
-    local ok, view_state = pcall(require, "ULG.context.view_state")
-    if not ok then return false end
-    local s = view_state.get_state()
-    return s and s.is_watching == true
+    if require("lazy.core.config").plugins["ULG.nvim"]._.loaded then
+      local ok, view_state = pcall(require, "ULG.context.view_state")
+      if not ok then return false end
+      local s = view_state.get_state("ULG")
+      if s and s.is_active == true then
+        return true
+      end
+      return false
+    end
+    return false
   end,
 }
 
