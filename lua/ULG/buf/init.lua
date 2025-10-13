@@ -221,4 +221,19 @@ function M.close_console()
   view_state.reset_all_states()
 end
 
+--- UE LogとGeneral Logのすべてのtailingを停止する
+function M.stop_all_tailing()
+  local ue_s = view_state.get_state("ue_log_view")
+  local gen_s = view_state.get_state("general_log_view")
+
+  if ue_s.tailer then
+    ue_s.tailer:stop()
+    view_state.update_state("ue_log_view", { tailer = nil, is_watching = false })
+    log.get().debug("Stopped UE log tailer.")
+  end
+
+  -- General Logの停止は既に存在
+  M.stop_general_tail()
+end
+
 return M
