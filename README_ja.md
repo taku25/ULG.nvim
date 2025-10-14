@@ -23,7 +23,6 @@ Unreal-insightsの表示にも対応しており、スパークラインで各�
 
 [`UNL.nvim`](https://github.com/taku25/UNL.nvim) ライブラリを基盤として構築されており、リアルタイムでのログ追跡、強力なフィルタリング、ログからのソースコードへのジャンプ機能などを提供します。
 
-その他、Unreal Engine開発を強化するためのプラグイン群 ([`UEP.nvim`](https://github.com/taku25/UEP.nvim), [`UBT.nvim`](https://github.com/taku25/UBT.nvim),[`UCM.nvim`](https://github.com/taku25/UCM.nvim)) があります。
 
 [English](./README.md) | [日本語](./README_ja.md)
 
@@ -288,10 +287,21 @@ require('lualine').setup({
 ## その他
 
 Unreal Engine 関連プラグイン:
-*   [UEP.nvim](https://github.com/taku25/UEP.nvim) - Unreal Engine プロジェクトマネージャー
-*   [UBT.nvim](https://github.com/taku25/UBT.nvim) - Unreal Build Tool 連携
-*   [UCM.nvim](https://github.com/taku25/UBT.nvim) - Unreal Engine クラスマネージャー
-*   [tree-sitter for Unreal Engine](https://github.com/taku25/tree-sitter-unreal-cpp) - unreal cpp用tree-sitter
+
+* [UEP](https://github.com/taku25/UEP.nvim)
+  * urpojectを解析してファイルナビゲートなどを簡単に行えるようになります
+* [UBT](https://github.com/taku25/UBT.nvim)
+  * BuildやGenerateClangDataBaseなどを非同期でNeovim上から使えるようになります
+* [UCM](https://github.com/taku25/UCM.nvim)
+  * クラスの追加や削除がNeovim上からできるようになります。
+* [ULG](https://github.com/taku25/ULG.nvim)
+  * UEのログやliveCoding,stat fpsなどnvim上からできるようになります
+* [USH](https://github.com/taku25/USH.nvim)
+  * ushellをnvimから対話的に操作できるようになります
+* [neo-tree-unl](https://github.com/taku25/neo-tree-unl.nvim)
+  * IDEのようなプロジェクトエクスプローラーを表示できます。
+* [tree-sitter for Unreal Engine](https://github.com/taku25/tree-sitter-unreal-cpp)
+  * UCLASSなどを含めてtree-sitterの構文木を使ってハイライトができます。
 
 ## 📜 ライセンス (License)
 MIT License

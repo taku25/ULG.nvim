@@ -22,7 +22,6 @@ It also supports displaying Unreal Insights data, allowing you to check the perf
 
 Built upon the [`UNL.nvim`](https://github.com/taku25/UNL.nvim) library, it offers real-time log tailing, powerful filtering capabilities, and the ability to jump to source code from log entries.
 
-This plugin is part of a suite of tools designed to enhance Unreal Engine development, including ([`UEP.nvim`](https://github.com/taku25/UEP.nvim), [`UBT.nvim`](https://github.com/taku25/UBT.nvim), and [`UCM.nvim`](https://github.com/taku25/UCM.nvim)).
 
 [English](./README.md) | [日本語 (Japanese)](./README_ja.md)
 
@@ -282,13 +281,24 @@ require('lualine').setup({
 })
 ```
 
-## See Also
+## Others
 
-Other Unreal Engine related plugins:
-*   [UEP.nvim](https://github.com/taku25/UEP.nvim) - Unreal Engine Project Manager
-*   [UBT.nvim](https://github.com/taku25/UBT.nvim) - Unreal Build Tool Integration
-*   [UCM.nvim](https://github.com/taku25/UBT.nvim) - Unreal Engine Class Manager
-*   [tree-sitter-unreal-cpp](https://github.com/taku25/tree-sitter-unreal-cpp) - Unreal Engine tree-sitter
+**Unreal Engine Related Plugins:**
+
+* **[UEP](https://github.com/taku25/UEP.nvim)**
+    * Analyzes `uproject` files for easy file navigation.
+* **[UBT](https://github.com/taku25/UBT.nvim)**
+    * Asynchronously run Build, GenerateClangDataBase, and other tasks from Neovim.
+* **[UCM](https://github.com/taku25/UCM.nvim)**
+    * Add and delete classes directly from Neovim.
+* **[ULG](https://github.com/taku25/ULG.nvim)**
+    * View UE logs, live coding status, stat fps, and more within nvim.
+* **[USH](https://github.com/taku25/USH.nvim)**
+    * Interact with `ushell` from nvim.
+* **[neo-tree-unl](https://github.com/taku25/neo-tree-unl.nvim)**
+    * Display an IDE-like project explorer.
+* **[tree-sitter for Unreal Engine](https://github.com/taku25/tree-sitter-unreal-cpp)**
+    * Provides tree-sitter highlighting, including support for `UCLASS` and other Unreal Engine specific syntax.
 
 ## 📜 License
 MIT License
