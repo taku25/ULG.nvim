@@ -16,7 +16,9 @@ local M = {
       prefer = { "telescope", "fzf-lua", "native", "dummy" },
     },
   },
-
+  -- Manually specify the engine path if automatic detection fails.
+  -- Example: "C:/Program Files/Epic Games/UE_5.4"
+  engine_path = nil,
   safe_open = {
     -- A list of buffer types to avoid.
     -- See `:help buftype` for more options.

@@ -94,14 +94,14 @@ lazy.nvimを使っている場合、optsキーに設定テーブルを渡しま�
 
 lua
 -- lua/plugins/ulg.lua
-return {
-'taku25/ULG.nvim',
-dependencies = { 'taku25/UNL.nvim' },
-opts = {
-position = "right",
-vertical_size = 100,
-hide_timestamp = false,
-}
+  return {
+    'taku25/ULG.nvim',
+    dependencies = { 'taku25/UNL.nvim' },
+    opts = {
+    position = "right",
+    vertical_size = 100,
+    hide_timestamp = false,
+  }
 }
 <
 
@@ -113,59 +113,63 @@ hide_timestamp = false,
 
 lua
 {
--- ログウィンドウの表示位置: "bottom", "top", "left", "right"
-position = "bottom",
+  -- エンジンの自動検出が失敗する場合に、手動でパスを指定します
+  -- 例: "C:/Program Files/Epic Games/UE_5.4"
+  engine_path = nil,
+  
+  -- ログウィンドウの表示位置: "bottom", "top", "left", "right"
+  position = "bottom",
+  
+  -- 垂直分割時のウィンドウ幅
+  vertical_size = 80,
+  -- 水平分割時のウィンドウの高さ
+  horizontal_size = 15,
+  
+  -- ウィンドウを開くコマンドを直接指定することもできます (例: "tabnew")
+  win_open_command = nil,
+  
+  -- ログバッファに設定されるファイルタイプ
+  filetype = "unreal-log",
+  
+  -- 新しいログが追加されたときに自動で末尾までスクロールするか
+  auto_scroll = true,
+  
+  -- ログファイルの変更をチェックする間隔 (ミリ秒)
+  polling_interval_ms = 500,
+  -- 一度に描画するログの最大行数
+  render_chunk_size = 500,
+  
+  -- タイムスタンプをデフォルトで非表示にするか
+  hide_timestamp = true,
+  
+  -- ログウィンドウ内でのキーマップ
+  keymaps = {
+    filter_prompt = "s",
+    filter_clear = "<Esc>",
+    toggle_timestamp = "i",
+    clear_content = "c",
+    category_filter_prompt = "f",
+    jump_to_source = "<CR>",
+    filter_toggle = "t",
+    search_prompt = "h",
+    jump_next_match = "]f",
+    jump_prev_match = "[f",
+    show_help = "?",
+  },
 
--- 垂直分割時のウィンドウ幅
-vertical_size = 80,
--- 水平分割時のウィンドウの高さ
-horizontal_size = 15,
-
--- ウィンドウを開くコマンドを直接指定することもできます (例: "tabnew")
-win_open_command = nil,
-
--- ログバッファに設定されるファイルタイプ
-filetype = "unreal-log",
-
--- 新しいログが追加されたときに自動で末尾までスクロールするか
-auto_scroll = true,
-
--- ログファイルの変更をチェックする間隔 (ミリ秒)
-polling_interval_ms = 500,
--- 一度に描画するログの最大行数
-render_chunk_size = 500,
-
--- タイムスタンプをデフォルトで非表示にするか
-hide_timestamp = true,
-
--- ログウィンドウ内でのキーマップ
-keymaps = {
-filter_prompt = "s",
-filter_clear = "<Esc>",
-toggle_timestamp = "i",
-clear_content = "c",
-category_filter_prompt = "f",
-jump_to_source = "<CR>",
-filter_toggle = "t",
-search_prompt = "h",
-jump_next_match = "]f",
-jump_prev_match = "[f",
-show_help = "?",
-},
-
--- ヘルプウィンドウの枠線
-help = {
-border = "rounded",
-},
-
--- シンタックスハイライトの設定
-highlights = {
-enabled = true,
-groups = {
--- ここでデフォルトのハイライトルールを上書きしたり、
--- 新しいルールを追加したりできます。
-},
-},
+  -- ヘルプウィンドウの枠線
+  help = {
+    border = "rounded",
+  },
+  
+  -- シンタックスハイライトの設定
+  highlights = {
+    enabled = true,
+    groups = {
+    -- ここでデフォルトのハイライトルールを上書きしたり、
+    -- 新しいルールを追加したりできます。
+    },
+  },
 }
 <
 
@@ -186,13 +190,6 @@ function()
 local ok, view_state = pcall(require, "ULG.context.view_state")
 if not ok then return "" end
 
-code
-Code
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
 local s = view_state.get_state()
   if s and s.is_watching == true and s.filepath then
     return "👀 ULG: " .. vim.fn.fnamemodify(s.filepath, ":t")

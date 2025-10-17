@@ -112,6 +112,10 @@ Below are all available options with their default values.
 -- Inside the opts = { ... } table for ULG.nvim
 
 {
+  -- Manually specify the engine path if automatic detection fails.
+  -- Example: "C:/Program Files/Epic Games/UE_5.4"
+  engine_path = nil,
+
   -- Settings for the main UE log window
   position = "bottom", -- "right", "left", "bottom", "top", "tab"
   size = 0.25,         -- Percentage of the screen height/width (0.0 to 1.0)

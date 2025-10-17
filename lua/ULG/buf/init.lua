@@ -7,7 +7,7 @@ local general_log_view = require("ULG.buf.log.general")
 local log = require("ULG.logger")
 local tail = require("ULG.core.tail")
 local view_state = require("ULG.context.view_state")
-
+local unl_config = require("UNL.config")
 local M = {}
 
 --------------------------------------------------------------------------------
@@ -20,7 +20,9 @@ local function get_live_coding_log_path()
   if vim.fn.has("win32") == 1 then
     local project = unl_finder.project.find_project(vim.loop.cwd())
     if project and project.uproject then
-      local engine_root = unl_finder.engine.find_engine_root(project.uproject)
+      local engine_root = unl_finder.engine.find_engine_root(project.uproject, {
+        engine_override_path = unl_config.get("ULG").engine_path,
+      })
       if engine_root then
         table.insert(candidate_paths, engine_root .. "/Engine/Programs/UnrealBuildTool/Log.txt")
       end

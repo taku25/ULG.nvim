@@ -113,59 +113,64 @@ Below are all the configurable options and their default values.
 
 lua
 {
--- Log window position: "bottom", "top", "left", "right"
-position = "bottom",
+  -- Manually specify the engine path if automatic detection fails.
+  -- Example: "C:/Program Files/Epic Games/UE_5.4"
+  engine_path = nil,
+  
+  -- Log window position: "bottom", "top", "left", "right"
+  position = "bottom",
+  
+  -- Window width for vertical splits
+  vertical_size = 80,
+  -- Window height for horizontal splits
+  horizontal_size = 15,
+  
+  -- You can also specify a command to open the window (e.g., "tabnew")
+  win_open_command = nil,
+  
+  -- Filetype set for the log buffer
+  filetype = "unreal-log",
+  
+  -- Automatically scroll to the end when new logs are added
+  auto_scroll = true,
+  
+  -- Interval to check for log file changes (in milliseconds)
+  polling_interval_ms = 500,
+  -- Maximum number of log lines to render at once
+  render_chunk_size = 500,
+  
+  -- Hide timestamps by default
+  hide_timestamp = true,
+  
+  -- Keymaps within the log window
+  keymaps = {
+    filter_prompt = "s",
+    filter_clear = "<Esc>",
+    toggle_timestamp = "i",
+    clear_content = "c",
+    category_filter_prompt = "f",
+    jump_to_source = "<CR>",
+    filter_toggle = "t",
+    search_prompt = "h",
+    jump_next_match = "]f",
+    jump_prev_match = "[f",
+    show_help = "?",
+  },
 
--- Window width for vertical splits
-vertical_size = 80,
--- Window height for horizontal splits
-horizontal_size = 15,
+  -- Border for the help window
+  help = {
+    border = "rounded",
 
--- You can also specify a command to open the window (e.g., "tabnew")
-win_open_command = nil,
+  },
 
--- Filetype set for the log buffer
-filetype = "unreal-log",
-
--- Automatically scroll to the end when new logs are added
-auto_scroll = true,
-
--- Interval to check for log file changes (in milliseconds)
-polling_interval_ms = 500,
--- Maximum number of log lines to render at once
-render_chunk_size = 500,
-
--- Hide timestamps by default
-hide_timestamp = true,
-
--- Keymaps within the log window
-keymaps = {
-filter_prompt = "s",
-filter_clear = "<Esc>",
-toggle_timestamp = "i",
-clear_content = "c",
-category_filter_prompt = "f",
-jump_to_source = "<CR>",
-filter_toggle = "t",
-search_prompt = "h",
-jump_next_match = "]f",
-jump_prev_match = "[f",
-show_help = "?",
-},
-
--- Border for the help window
-help = {
-border = "rounded",
-},
-
--- Syntax highlighting settings
-highlights = {
-enabled = true,
-groups = {
--- You can override default highlight rules
--- or add new ones here.
-},
-},
+  -- Syntax highlighting settings
+  highlights = {
+    enabled = true,
+    groups = {
+    -- You can override default highlight rules
+    -- or add new ones here.
+    },
+  },
 }
 <
 
@@ -186,13 +191,6 @@ function()
 local ok, view_state = pcall(require, "ULG.context.view_state")
 if not ok then return "" end
 
-code
-Code
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
 local s = view_state.get_state()
   if s and s.is_watching == true and s.filepath then
     return "👀 ULG: " .. vim.fn.fnamemodify(s.filepath, ":t")

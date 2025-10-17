@@ -114,6 +114,10 @@ return {
 -- ULG.nvim の opts = { ... } の中身
 
 {
+  -- エンジンの自動検出が失敗する場合に、手動でパスを指定します
+  -- 例: "C:/Program Files/Epic Games/UE_5.4"
+  engine_path = nil,
+
   -- UEログ (主ウィンドウ) の設定
   position = "bottom", -- "right", "left", "bottom", "top", "tab"
   size = 0.25,         -- 画面全体に対する高さ/幅の割合 (0.0 ~ 1.0)
