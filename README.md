@@ -95,8 +95,7 @@ Install using your favorite plugin manager.
 return {
   'taku25/ULG.nvim',
   -- ULG.nvim depends on UNL.nvim.
-  -- UBT.nvim is also required for build log features.
-  dependencies = { 'taku25/UNL.nvim', 'taku25/UBT.nvim' },
+  dependencies = { 'taku25/UNL.nvim'  },
   opts = {
     -- Place your configuration here (see details below)
   }

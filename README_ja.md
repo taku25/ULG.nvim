@@ -97,8 +97,7 @@ Unreal-insightsの表示にも対応しており、スパークラインで各�
 return {
   'taku25/ULG.nvim',
   -- ULG.nvim は UNL.nvim に依存しています。
-  -- ビルドログ機能を使うには UBT.nvim も必要です。
-  dependencies = { 'taku25/UNL.nvim', 'taku25/UBT.nvim' },
+  dependencies = { 'taku25/UNL.nvim' },
   opts = {
     -- ここに設定を記述します (詳細は後述)
   }
