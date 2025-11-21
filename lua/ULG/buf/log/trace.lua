@@ -246,9 +246,13 @@ function M.open(trace_handle_arg)
         frame_data = frame,
       })
     end
-    local ok, neo_tree_cmd = pcall(require, "neo-tree.command")
-    if ok then
-      neo_tree_cmd.execute({ source = "insights", action = "focus" })
+    local unx_ok, _ = pcall(require, "UNX") -- UNXがrequire可能かチェック
+
+    if not unx_ok then
+        local ok, neo_tree_cmd = pcall(require, "neo-tree.command")
+        if ok then
+          neo_tree_cmd.execute({ source = "insights", action = "focus" })
+        end
     end
   end
 
