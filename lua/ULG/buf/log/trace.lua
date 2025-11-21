@@ -84,7 +84,7 @@ function M.open(trace_handle_arg)
   end
 
   -- 新しい状態をローカルで構築する
-  local new_s = vim.deepcopy(require("ULG.context.trace_log_view_context_defaults"))
+  local new_s = vim.deepcopy(require("ULG.context.view.trace_log_defaults"))
   new_s.trace_handle = trace_handle_arg
   new_s.frames_data = trace_analyzer.analyze_gamethread_frames(trace_handle_arg:get_thread_events("GameThread"))
 
