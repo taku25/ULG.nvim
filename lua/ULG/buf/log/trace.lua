@@ -234,25 +234,76 @@ function M.open(trace_handle_arg)
     end
   end
 
-  M.callbacks.show_callees_tree  = function()
+M.callbacks.show_callees_tree  = function()
     local s = view_state.get_state("trace_log_view")
     local win = s.handle:get_win_id()
     if not win then return end
     local frame_index = vim.api.nvim_win_get_cursor(win)[2] + 1
     local frame = s.frames_data[frame_index]
+    
     if frame and s.trace_handle then
-      unl_events.publish(unl_event_types.ON_REQUEST_TRACE_CALLEES_VIEW, {
-        trace_handle = s.trace_handle,
-        frame_data = frame,
-      })
-    end
-    local unx_ok, _ = pcall(require, "UNX") -- UNXがrequire可能かチェック
+        local payload = {
+          trace_handle = s.trace_handle,
+          frame_data = frame,
+        }
+        
+        local log = require("ULG.logger").get()
+        local unl_api_ok, unl_api = pcall(require, "UNL.api")
+        
+        -- ★★★ 修正箇所: UNL APIの戻り値を受け取るように修正 ★★★
+        if unl_api_ok then
+            
+            local has_unx_provider = false
+            local is_unx_open = false
 
-    if not unx_ok then
-        local ok, neo_tree_cmd = pcall(require, "neo-tree.command")
-        if ok then
-          neo_tree_cmd.execute({ source = "insights", action = "focus" })
+            -- 1. UNXプロバイダーの状態をチェック (ok, result で受け取る)
+            local ok, is_open_res = unl_api.provider.request("unx.is_open", { name = "ULG.nvim" })
+            
+            -- ok が true で、かつ結果が nil でない (プロバイダーが存在する) 場合
+            if ok and is_open_res ~= nil then
+                has_unx_provider = true
+                is_unx_open = is_open_res
+            end
+
+            -- 2. UNXが存在し、開いていなければ、open を要求
+            if has_unx_provider and not is_unx_open then
+                log.info("UNX provider detected and closed. Requesting UNX open.")
+                -- open も ok, result で受け取るべきだが、ここでは戻り値は無視して実行
+                unl_api.provider.request("unx.open", { name = "ULG.nvim" })
+            end
+            
+            -- 3. 1フレーム後にイベント発行とフォールバックロジックを実行
+            vim.schedule(function()
+                
+                -- イベントを発行し、ペイロードをUNXに送信
+                require("UNL.event.events").publish(require("UNL.event.types").ON_REQUEST_TRACE_CALLEES_VIEW, payload)
+
+                -- UNXプロバイダーが存在しない場合 (has_unx_provider が false の場合) はneo-treeにフォールバック
+                if not has_unx_provider then
+                    log.warn("UNL API available, but UNX provider not found. Falling back to neo-tree.")
+                    local ok, neo_tree_cmd = pcall(require, "neo-tree.command")
+                    if ok then
+                      neo_tree_cmd.execute({ source = "insights", action = "focus" })
+                    else
+                      log.warn("neo-tree command not found.")
+                    end
+                end
+            end)
+
+        else
+            -- UNL API自体がロードできなかった場合 (UNXセットアップ失敗など)
+            log.warn("UNL API not available. Falling back to direct neo-tree focus.")
+            
+            require("UNL.event.events").publish(require("UNL.event.types").ON_REQUEST_TRACE_CALLEES_VIEW, payload)
+
+            local ok, neo_tree_cmd = pcall(require, "neo-tree.command")
+            if ok then
+                neo_tree_cmd.execute({ source = "insights", action = "focus" })
+            else
+                log.warn("neo-tree command not found.")
+            end
         end
+        -- ★★★ 修正箇所ここまで ★★★
     end
   end
 
