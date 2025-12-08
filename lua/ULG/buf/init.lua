@@ -1,5 +1,3 @@
--- lua/ULG/buf/init.lua (ステートマネージャー対応版)
-
 local unl_log_engine = require("UNL.backend.buf.log")
 local ue_log_view = require("ULG.buf.log.ue")
 local unl_finder = require("UNL.finder")
@@ -10,11 +8,14 @@ local view_state = require("ULG.context.view_state")
 local unl_config = require("UNL.config")
 local M = {}
 
+-- 現在のアクティブなタブ ("ue" or "general")
+local current_tab = "ue"
+local main_win_id = nil
+
 --------------------------------------------------------------------------------
 -- 内部ヘルパー関数
 --------------------------------------------------------------------------------
 
---- OSを判別して、Live Codingのログファイルパスを返す
 local function get_live_coding_log_path()
   local candidate_paths = {}
   if vim.fn.has("win32") == 1 then
@@ -27,7 +28,6 @@ local function get_live_coding_log_path()
         table.insert(candidate_paths, engine_root .. "/Engine/Programs/UnrealBuildTool/Log.txt")
       end
     end
-
     local local_appdata = os.getenv("LOCALAPPDATA")
     if not local_appdata then return nil, "Could not get LOCALAPPDATA environment variable." end
     table.insert(candidate_paths, local_appdata .. "\\UnrealBuildTool\\Log.txt")
@@ -42,18 +42,122 @@ local function get_live_coding_log_path()
   end
   for _, path in ipairs(candidate_paths) do
     if vim.fn.filereadable(path) == 1 then
-      print(path)
-      log.get().debug("Auto-detected Live Coding log path: %s", path)
       return path, nil
     end
   end
+  return nil, "Live Coding log file not found."
+end
+
+-- Winbarを更新する関数
+local function update_winbar()
+    if not main_win_id or not vim.api.nvim_win_is_valid(main_win_id) then return end
+    
+    local hl_active   = "%#UNXTabActive#"   
+    local hl_inactive = "%#UNXTabInactive#"
+    local hl_sep      = "%#UNXTabSeparator#"
+    
+    if vim.fn.hlexists("UNXTabActive") == 0 then
+        hl_active = "%#TabLineSel#"; hl_inactive = "%#TabLine#"; hl_sep = "%#NonText#"
+    end
+
+    local text = " "
+    
+    -- UE Log Tab
+    if current_tab == "ue" then
+        text = text .. hl_active .. " Unreal Engine Log "
+    else
+        text = text .. hl_inactive .. " Unreal Engine Log "
+    end
+    
+    text = text .. hl_sep .. " | "
+    
+    -- General Log Tab
+    if current_tab == "general" then
+        text = text .. hl_active .. " General/Build Log "
+    else
+        text = text .. hl_inactive .. " General/Build Log "
+    end
+    
+    pcall(vim.api.nvim_win_set_option, main_win_id, "winbar", text)
+end
+
+-- タブを切り替える関数
+local function switch_tab(target)
+    if current_tab == target then return end
+    if not main_win_id or not vim.api.nvim_win_is_valid(main_win_id) then return end
+    
+    local ue_s = view_state.get_state("ue_log_view")
+    local gen_s = view_state.get_state("general_log_view")
+    
+    if target == "ue" and ue_s.handle then
+        ue_s.handle:attach_to_win(main_win_id)
+        current_tab = "ue"
+    elseif target == "general" and gen_s.handle then
+        gen_s.handle:attach_to_win(main_win_id)
+        current_tab = "general"
+    end
+    
+    update_winbar()
+end
+
+-- ★★★ クリックハンドラ (位置計算) ★★★
+local function handle_tab_click()
+    local mouse = vim.fn.getmousepos()
+    
+    -- メインウィンドウのWinBar(line=0)以外は無視
+    if mouse.winid ~= main_win_id or mouse.line ~= 0 then return end
+    
+    local col = mouse.wincol
+    local strwidth = vim.fn.strdisplaywidth
+
+    -- テキスト構成要素の幅を計算
+    -- (update_winbar で設定している文字列と同じ内容で計算)
+    local padding_w = strwidth(" ")
+    local tab1_text = " Unreal Engine Log "
+    local tab1_w = strwidth(tab1_text)
+    
+    local sep_text = " | "
+    local sep_w = strwidth(sep_text)
+    
+    local tab2_text = " General/Build Log "
+    local tab2_w = strwidth(tab2_text)
+
+    -- 判定ロジック
+    local current_x = padding_w
+    
+    -- UE Log タブの範囲: start ~ start + width
+    if col >= current_x and col < (current_x + tab1_w) then
+        switch_tab("ue")
+        return
+    end
+    
+    current_x = current_x + tab1_w + sep_w
+    
+    -- General Log タブの範囲
+    if col >= current_x and col < (current_x + tab2_w) then
+        switch_tab("general")
+        return
+    end
+end
+
+-- タブ切り替え用のキーマップを設定
+local function setup_tab_keymaps(buf)
+    local opts = { noremap = true, silent = true, buffer = buf }
+    
+    -- Tabキーでトグル
+    vim.keymap.set("n", "<Tab>", function()
+        local next_tab = (current_tab == "ue") and "general" or "ue"
+        switch_tab(next_tab)
+    end, opts)
+    
+    -- ★修正: クリック対応
+    vim.keymap.set("n", "<LeftMouse>", handle_tab_click, opts)
 end
 
 --------------------------------------------------------------------------------
 -- Public API
 --------------------------------------------------------------------------------
 
---- General Logの監視を停止する
 function M.stop_general_tail()
   local s = view_state.get_state("general_log_view")
   if s.tailer then
@@ -63,39 +167,35 @@ function M.stop_general_tail()
   end
 end
 
---- Provider経由で呼び出され、UBTビルドログのデータを表示する
 function M.display_ubt_log(opts)
   opts = opts or {}
   M.stop_general_tail()
-
   local s = view_state.get_state("general_log_view")
-  if not (s.handle and s.handle:is_open()) then
-    return
-  end
-
-  if opts.clear then
-    general_log_view.clear_buffer()
-    general_log_view.set_title("[[ UBT Build LOG ]]")
-  end
-  if opts.lines and #opts.lines > 0 then
-    general_log_view.append_lines(opts.lines)
+  
+  if s.handle then
+    if opts.clear then
+      general_log_view.clear_buffer()
+      general_log_view.set_title("[[ UBT Build LOG ]]")
+    end
+    if opts.lines and #opts.lines > 0 then
+      general_log_view.append_lines(opts.lines)
+    end
+    
+    -- ビルドログが流れてきたら自動的にタブを切り替える (お好みで有効化)
+    -- if current_tab ~= "general" then switch_tab("general") end
   end
 end
 
---- Live Codingログの監視を開始する
 function M.start_live_coding_log()
   M.stop_general_tail()
-
   local log_path, err = get_live_coding_log_path()
   if err then
-    log.get().error(err)
+    log.get().debug(err)
     return
   end
 
   local s = view_state.get_state("general_log_view")
-  if not (s.handle and s.handle:is_open()) then
-    return
-  end
+  if not s.handle then return end
 
   local on_new_lines = function(lines)
     for _, line in ipairs(lines) do
@@ -117,18 +217,9 @@ function M.setup()
   local conf = require("UNL.config").get("ULG")
   if conf.enable_auto_close then
     local function check_and_close()
-      local ue_s = view_state.get_state("ue_log_view")
-      local gen_s = view_state.get_state("general_log_view")
-      if not (ue_s.handle and ue_s.handle:is_open()) then return end
-      local ue_win_id = ue_s.handle:get_win_id()
-      local general_win_id = (gen_s.handle and gen_s.handle:get_win_id()) or -1
-      for _, win_id in ipairs(vim.api.nvim_list_wins()) do
-        if win_id ~= ue_win_id and win_id ~= general_win_id then
-          return
-        end
+      if main_win_id and not vim.api.nvim_win_is_valid(main_win_id) then
+           M.close_console()
       end
-      log.get().debug("Last normal window closed. Auto-closing ULG console.")
-      M.close_console()
     end
     local augroup = vim.api.nvim_create_augroup("ULGAutoClose", { clear = true })
     vim.api.nvim_create_autocmd({ "WinClosed", "BufWipeout" }, {
@@ -140,101 +231,81 @@ function M.setup()
   log.get().debug("ULG Buffer Manager initialized.")
 end
 
-function M.open_console(filepath) -- filepath は nil の可能性がある
-  local s = view_state.get_state("ue_log_view")
-  if s.handle and s.handle:is_open() then
-    vim.api.nvim_set_current_win(s.handle:get_win_id())
+function M.open_console(filepath)
+  if main_win_id and vim.api.nvim_win_is_valid(main_win_id) then
+    vim.api.nvim_set_current_win(main_win_id)
     return
   end
 
-  local ue_tailer = view_state.get_state("ue_log_view").tailer
-  if ue_tailer then ue_tailer:stop() end
-  M.stop_general_tail()
-  view_state.update_state("ue_log_view", { tailer = nil })
-
   local conf = require("UNL.config").get("ULG")
-  local handles_to_open = {}
-  local layout_cmd
+  
+  if not unl_log_engine then
+      log.get().error("UNL log engine not loaded.")
+      return
+  end
 
   local new_ue_log_handle = unl_log_engine.create(ue_log_view.create_spec(conf))
-  local new_general_log_handle
+  local ue_buf = new_ue_log_handle:setup_buffer()
+  setup_tab_keymaps(ue_buf)
+
+  local new_general_log_handle = nil
   if conf.general_log_enabled then
     new_general_log_handle = unl_log_engine.create(general_log_view.create_spec(conf))
+    local gen_buf = new_general_log_handle:setup_buffer()
+    setup_tab_keymaps(gen_buf)
   end
 
-  local function build_single_window_command(position, size)
-    local is_fixed_size = size and size >= 1
-    local size_prefix = is_fixed_size and tostring(math.floor(size)) or ""
-    local pos_cmd_map = { top = "topleft new", left = "topleft vnew", right = "botright vnew", tab = "tabnew" }
-    local pos_cmd = pos_cmd_map[position] or "botright new"
-    return size_prefix .. " " .. pos_cmd
-  end
+  local pos = conf.position or "bottom"
+  local size = conf.row_number or 15
+  local cmd = "botright " .. size .. "new"
+  if pos == "right" then cmd = "botright vertical 40new" end
 
-  if not conf.general_log_enabled then
-    handles_to_open = { new_ue_log_handle }
-    layout_cmd = build_single_window_command(conf.position, conf.size)
-  else
-    local commands = {}
-    local height = (conf.row_number and conf.row_number >= 1) and tostring(math.floor(conf.row_number)) or ""
-    table.insert(commands, " botright " .. height .. " new")
-    table.insert(commands, "vsplit")
-    if conf.general_log_size and conf.general_log_size >= 1 then
-      table.insert(commands, "wincmd l")
-      table.insert(commands, "vertical resize " .. tostring(math.floor(conf.general_log_size)))
-    end
-    layout_cmd = table.concat(commands, " | ")
-    handles_to_open = { new_ue_log_handle, new_general_log_handle }
-  end
+  vim.cmd(cmd)
+  main_win_id = vim.api.nvim_get_current_win()
+  
+  vim.api.nvim_set_option_value("number", false, { win = main_win_id })
+  vim.api.nvim_set_option_value("relativenumber", false, { win = main_win_id })
+  
+  view_state.update_state("ue_log_view", { handle = new_ue_log_handle })
+  view_state.update_state("general_log_view", { handle = new_general_log_handle })
+  view_state.update_state("ULG", { is_active = true })
 
-  unl_log_engine.batch_open(handles_to_open, layout_cmd, function(opened_handles)
-    view_state.update_state("ue_log_view", { handle = new_ue_log_handle })
-    view_state.update_state("general_log_view", { handle = new_general_log_handle })
-    view_state.update_state("ULG", { is_active = true })
+  current_tab = "ue"
+  new_ue_log_handle:attach_to_win(main_win_id)
+  update_winbar()
 
-    if filepath and new_ue_log_handle and new_ue_log_handle:is_open() then
+  if filepath then
       ue_log_view.start_tailing(filepath, conf)
-    end
-    if conf.general_log_enabled and new_general_log_handle and new_general_log_handle:is_open() then
+  end
+  if conf.general_log_enabled then
       M.start_live_coding_log()
-    end
-    if new_ue_log_handle and new_ue_log_handle:is_open() then
-      local ue_win_id = new_ue_log_handle:get_win_id()
-      if ue_win_id then
-        vim.api.nvim_set_current_win(ue_win_id)
-      end
-    end
-  end)
+  end
 end
 
 function M.close_console()
+  if main_win_id and vim.api.nvim_win_is_valid(main_win_id) then
+    vim.api.nvim_win_close(main_win_id, true)
+  end
+  main_win_id = nil
+
   local ue_s = view_state.get_state("ue_log_view")
   local gen_s = view_state.get_state("general_log_view")
 
   if gen_s.tailer then gen_s.tailer:stop() end
   if ue_s.tailer then ue_s.tailer:stop() end
 
-  if gen_s.handle and gen_s.handle:is_open() then
-    gen_s.handle:close()
-  end
-  if ue_s.handle and ue_s.handle:is_open() then
-    ue_s.handle:close()
-  end
+  if ue_s.handle then ue_s.handle:close() end
+  if gen_s.handle then gen_s.handle:close() end
 
   view_state.reset_all_states()
 end
 
---- UE LogとGeneral Logのすべてのtailingを停止する
 function M.stop_all_tailing()
   local ue_s = view_state.get_state("ue_log_view")
-  local gen_s = view_state.get_state("general_log_view")
-
   if ue_s.tailer then
     ue_s.tailer:stop()
     view_state.update_state("ue_log_view", { tailer = nil, is_watching = false })
-    log.get().debug("Stopped UE log tailer.")
   end
-
-  -- General Logの停止は既に存在
   M.stop_general_tail()
 end
 
