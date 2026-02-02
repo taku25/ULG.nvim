@@ -56,7 +56,7 @@ local function parse_timer_line(line)
   return id, type, name, file, line_num
 end
 
-local function find_utrace_files(search_dirs)
+M.find_utrace_files = function(search_dirs)
   if not search_dirs or #search_dirs == 0 then return {} end
   if vim.fn.executable("fd") == 1 then
     local cmd = { "fd", "--type", "f", "--extension", "utrace", "--absolute-path" }
@@ -83,6 +83,10 @@ local function find_utrace_files(search_dirs)
   end
   for _, dir in ipairs(search_dirs) do find_recursive(dir) end
   return files
+end
+
+local function find_utrace_files(search_dirs)
+    return M.find_utrace_files(search_dirs)
 end
 
 ---

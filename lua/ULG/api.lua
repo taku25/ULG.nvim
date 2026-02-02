@@ -33,4 +33,19 @@ end
 function M.remote_command(command) -- 追加
   remote_cmd.execute_command(command)
 end
+
+function M.get_available_traces()
+  local trace_cmd = require("ULG.cmd.trace")
+  local unl_finder = require("UNL.finder")
+  local path = require("UNL.path")
+  local project_root = unl_finder.project.find_project_root(vim.loop.cwd())
+  if not project_root then return {} end
+  
+  local search_dirs = {}
+  local appdata_store = path.join(vim.loop.os_homedir(), "AppData", "Local", "UnrealEngine", "Common", "UnrealTrace", "Store")
+  table.insert(search_dirs, appdata_store)
+  table.insert(search_dirs, path.join(project_root, "Saved", "Profiling"))
+  
+  return trace_cmd.find_utrace_files(search_dirs)
+end
 return M

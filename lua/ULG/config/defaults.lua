@@ -137,17 +137,17 @@ local M = {
         priority = 30,
       },
       ULGErrorLine = {
-        pattern = [[\v.*([Ee]rror|\[[Ee]rror\]).*]],
+        pattern = [=[\v.*([Ee]rror|\[[Ee]rror\]).*]=],
         hl_group = "ErrorMsg",
         priority = 20,
       },
       ULGWarningLine = {
-        pattern = [[\v.*([Ww]arning|\[[Ww]arning\]).*]],
+        pattern = [=[\v.*([Ww]arning|\[[Ww]arning\]).*]=],
         hl_group = "DiagnosticWarn",
         priority = 21,
       },
       ULGSuccessLine = {
-        pattern = [[\v.*([Ss]uccess|\[[Ss]uccess\]).*]],
+        pattern = [=[\v.*([Ss]uccess|\[[Ss]uccess\]).*]=],
         hl_group = "DiffAdd",
         priority = 22,
       },
