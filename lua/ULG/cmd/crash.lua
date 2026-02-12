@@ -2,7 +2,7 @@
 
 -- 新しいパスでfinderを読み込む
 local log_finder = require("ULG.finder.log")
-local unl_picker = require("UNL.backend.picker")
+local unl_picker = require("UNL.picker")
 local log = require("ULG.logger")
 -- おそらくバッファを開くためのモジュールが必要になります
 local buf_manager = require("ULG.buf")
@@ -26,7 +26,7 @@ function M.execute()
   end)
 
   -- ピッカーでユーザーに選択させる
-  unl_picker.pick({
+  unl_picker.open({
     kind = "ulg_select_crash_log",
     title = "Select Crash Log to View",
     conf = require("UNL.config").get("ULG"),
@@ -43,3 +43,4 @@ function M.execute()
 end
 
 return M
+

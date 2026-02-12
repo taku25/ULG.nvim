@@ -1,6 +1,6 @@
 -- lua/ULG/buf/log/ue.lua (ステートマネージャー対応版)
 
-local unl_picker = require("UNL.backend.picker")
+local unl_picker = require("UNL.picker")
 local view_state = require("ULG.context.view_state")
 local help_window = require("ULG.window.help.ue")
 local unl_api = require("UNL.api")
@@ -112,7 +112,7 @@ function M.prompt_category_filter()
   if #categories_list == 0 then
     return log.get().info("No log categories found yet.")
   end
-  unl_picker.pick({
+  unl_picker.open({
     kind = "ulg_category_filter", title = "Filter by Categories", conf = require("UNL.config").get("ULG"),
     items = categories_list, multi_select = true,
     on_submit = function(selected)
@@ -251,3 +251,4 @@ function M.start_tailing(filepath, conf)
 end
 
 return M
+

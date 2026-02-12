@@ -1,7 +1,7 @@
 -- lua/ULG/cmd/start.lua
 
 local unl_finder = require("UNL.finder")
-local unl_picker = require("UNL.backend.picker")
+local unl_picker = require("UNL.picker")
 local buf_manager = require("ULG.buf")
 local log = require("ULG.logger")
 -- finderモジュールを新しいパスで読み込む
@@ -41,7 +41,7 @@ function M.execute(opts)
     end)
     
     -- ピッカーで表示
-    unl_picker.pick({
+    unl_picker.open({
       kind = "ulg_select_log_file",
       title = "Select Log File to View",
       conf = require("UNL.config").get("ULG"),
@@ -67,3 +67,4 @@ function M.execute(opts)
 end
 
 return M
+

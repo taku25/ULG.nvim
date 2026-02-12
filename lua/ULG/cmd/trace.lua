@@ -2,7 +2,7 @@
 
 local unl_api = require("UNL.api")
 local unl_finder = require("UNL.finder")
-local unl_picker = require("UNL.backend.picker")
+local unl_picker = require("UNL.picker")
 local path = require("UNL.path")
 local log = require("ULG.logger")
 local general_log_view = require("ULG.buf.log.general")
@@ -465,7 +465,7 @@ local function open_trace_picker()
       if ok_a and ok_b then return stat_a.mtime.sec > stat_b.mtime.sec end
       return false
   end)
-  unl_picker.pick({
+  unl_picker.open({
     kind = "ulg_select_trace_file", title = "Select .utrace File to Analyze",
     conf = conf, items = utrace_files, on_submit = process_selected_utrace,
     preview_enabled = false, picker_opts = { preview = false, },
@@ -503,4 +503,5 @@ function M.execute(opts)
 end
 
 return M
+
 
