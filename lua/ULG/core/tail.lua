@@ -62,15 +62,14 @@ function M.start(filepath, interval_ms, on_new_lines)
     end)
   end
 
-  -- fs_pollのコールバック
-  local poll_callback = function(poll_err, stat)
+  -- fs_pollのコールバック: (err, prev_stat, curr_stat)
+  local poll_callback = function(poll_err, _, curr_stat)
     if poll_err then
       -- 例: ファイルが削除されたなど
       tailer.stop()
       return
     end
-    -- stat は fs_poll の引数として渡される
-    if stat.size > last_size then
+    if curr_stat and curr_stat.size > last_size then
       read_new_content(false)
     end
   end
