@@ -170,19 +170,34 @@ end
 function M.display_ubt_log(opts)
   opts = opts or {}
   M.stop_general_tail()
+
+  -- ウィンドウが開いていなくても、最後に通知されたログ情報を記憶する
+  if opts.log_path then
+    view_state.update_state("general_log_view", {
+      last_log_path = opts.log_path,
+      last_log_title = opts.title or "[[ UBT Build LOG ]]"
+    })
+  end
+
   local s = view_state.get_state("general_log_view")
-  
   if s.handle then
     if opts.clear then
       general_log_view.clear_buffer()
-      general_log_view.set_title("[[ UBT Build LOG ]]")
+      local title = opts.title or s.last_log_title or "[[ UBT Build LOG ]]"
+      general_log_view.set_title(title)
     end
-    if opts.lines and #opts.lines > 0 then
+
+    local log_path = opts.log_path or s.last_log_path
+    if log_path then
+      local on_new_lines = function(lines)
+        general_log_view.append_lines(lines)
+      end
+      log.get().info("Starting to tail UBT log: %s", log_path)
+      local new_tailer = tail.start(log_path, 200, on_new_lines)
+      view_state.update_state("general_log_view", { tailer = new_tailer })
+    elseif opts.lines and #opts.lines > 0 then
       general_log_view.append_lines(opts.lines)
     end
-    
-    -- ビルドログが流れてきたら自動的にタブを切り替える (お好みで有効化)
-    -- if current_tab ~= "general" then switch_tab("general") end
   end
 end
 
@@ -278,7 +293,12 @@ function M.open_console(filepath)
       ue_log_view.start_tailing(filepath, conf)
   end
   if conf.general_log_enabled then
-      M.start_live_coding_log()
+      local s = view_state.get_state("general_log_view")
+      if s.last_log_path then
+          M.display_ubt_log({ log_path = s.last_log_path, title = s.last_log_title, clear = true })
+      else
+          M.start_live_coding_log()
+      end
   end
 end
 

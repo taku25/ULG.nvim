@@ -51,29 +51,34 @@ end
 
 function M.set_title(title)
   local s = view_state.get_state("general_log_view")
-  if s.handle and s.handle:is_open() then
-    vim.api.nvim_set_option_value("statusline", title, { win = s.handle:get_win_id() })
+  if s.handle then
+    local win_id = s.handle:get_win_id()
+    if win_id and vim.api.nvim_win_is_valid(win_id) then
+      vim.api.nvim_set_option_value("statusline", title, { win = win_id })
+    end
   end
 end
 
 function M.clear_buffer()
   local s = view_state.get_state("general_log_view")
-  if s.handle and s.handle:is_open() then
+  if s.handle then
     local buf_id = s.handle._buf
-    vim.api.nvim_set_option_value("modifiable", true, { buf = buf_id })
-    vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, {})
-    vim.api.nvim_set_option_value("modifiable", false, { buf = buf_id })
+    if buf_id and vim.api.nvim_buf_is_valid(buf_id) then
+      vim.api.nvim_set_option_value("modifiable", true, { buf = buf_id })
+      vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, {})
+      vim.api.nvim_set_option_value("modifiable", false, { buf = buf_id })
+    end
   end
 end
 
 function M.is_open()
   local s = view_state.get_state("general_log_view")
-  return s.handle and s.handle:is_open()
+  return s.handle ~= nil
 end
 
 function M.append_lines(lines)
   local s = view_state.get_state("general_log_view")
-  if not (s.handle and s.handle:is_open()) then return end
+  if not s.handle then return end
 
   if type(lines) == "string" then
     lines = { lines }

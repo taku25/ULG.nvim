@@ -28,47 +28,49 @@ function M.start(filepath, interval_ms, on_new_lines)
 
   -- ファイルの新しい部分を読み込んでコールバックを呼ぶ関数
   local function read_new_content(is_initial)
-    local current_size = vim.fn.getfsize(filepath)
-    if current_size < 0 then return end -- ファイルが存在しない
+    vim.loop.fs_stat(filepath, function(err, stat)
+      if err or not stat then return end
+      local current_size = stat.size
 
-    if last_size == -1 then -- 初回実行時
-      last_size = is_initial and 0 or current_size
-    end
-
-    if current_size <= last_size then
-        last_size = current_size
-        return
-    end
-
-    local fd = vim.loop.fs_open(filepath, "r", 438)
-    if not fd then return end
-
-    local size_to_read = current_size - last_size
-    vim.loop.fs_read(fd, size_to_read, last_size, function(err, data)
-      vim.loop.fs_close(fd)
-      if err or not data then return end
-
-      data = data:gsub('\r\n', '\n')
-      local lines = vim.split(data, "\n", { plain = true, trimempty = true })
-
-      if #lines > 0 and type(on_new_lines) == "function" then
-        vim.schedule(function()
-          on_new_lines(lines, is_initial or false)
-        end)
+      if last_size == -1 then -- 初回実行時
+        last_size = is_initial and 0 or current_size
       end
-      last_size = current_size
+
+      if current_size <= last_size then
+          last_size = current_size
+          return
+      end
+
+      local fd = vim.loop.fs_open(filepath, "r", 438)
+      if not fd then return end
+
+      local size_to_read = current_size - last_size
+      vim.loop.fs_read(fd, size_to_read, last_size, function(read_err, data)
+        vim.loop.fs_close(fd)
+        if read_err or not data then return end
+
+        data = data:gsub('\r\n', '\n')
+        local lines = vim.split(data, "\n", { plain = true, trimempty = true })
+
+        if #lines > 0 and type(on_new_lines) == "function" then
+          vim.schedule(function()
+            on_new_lines(lines, is_initial or false)
+          end)
+        end
+        last_size = current_size
+      end)
     end)
   end
 
   -- fs_pollのコールバック
-  local poll_callback = function(err, stat, prev_stat)
-    if err then
+  local poll_callback = function(poll_err, stat)
+    if poll_err then
       -- 例: ファイルが削除されたなど
       tailer.stop()
       return
     end
-
-    if prev_stat.size ~= stat.size then
+    -- stat は fs_poll の引数として渡される
+    if stat.size > last_size then
       read_new_content(false)
     end
   end
@@ -77,12 +79,14 @@ function M.start(filepath, interval_ms, on_new_lines)
   poll_handle:start(filepath, interval_ms, poll_callback)
 
   -- 起動時にファイルが既に存在する場合、最初の内容を読み込む
-  if vim.fn.filereadable(filepath) == 1 then
-    read_new_content(true)
-  else
-    vim.notify(("ULG: Log file not found, but will watch for creation: %s"):format(filepath), vim.log.levels.INFO)
-    last_size = 0 -- ファイル作成時に最初から読めるように0に設定
-  end
+  vim.schedule(function()
+    if vim.fn.filereadable(filepath) == 1 then
+      read_new_content(true)
+    else
+      -- ファイルが存在しない場合は作成を待つ
+      last_size = 0
+    end
+  end)
 
   return tailer
 end
