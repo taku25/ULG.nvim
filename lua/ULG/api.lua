@@ -34,6 +34,14 @@ function M.remote_command(command) -- 追加
   remote_cmd.execute_command(command)
 end
 
+function M.quickfix()
+  require("ULG.cmd.quickfix").execute()
+end
+
+function M.save(opts)
+  require("ULG.cmd.save").execute(opts)
+end
+
 function M.get_available_traces()
   local trace_cmd = require("ULG.cmd.trace")
   local unl_finder = require("UNL.finder")

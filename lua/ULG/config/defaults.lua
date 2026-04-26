@@ -88,7 +88,9 @@ local M = {
       remote_command_prompt = "P",
       jump_next_match = "]f",
       jump_prev_match = "[f",
-      toggle_build_log = "b", -- (このキーマップは将来的に general_log の toggle になる可能性がある)
+      jump_next_error = "]e",
+      jump_prev_error = "[e",
+      toggle_build_log = "b",
       show_help = "?",
     },
         -- トレースサマリービューワー用のキーマップ

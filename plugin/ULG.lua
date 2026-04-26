@@ -40,5 +40,17 @@ builder.create({
       desc = "Remote Prompt to Unreal.",
       args = {},
     },
+    ["quickfix"] = {
+      handler = function() api.quickfix() end,
+      desc = "Populate quickfix list with errors and warnings from log buffers.",
+      args = {},
+    },
+    ["save"] = {
+      handler = function(opts) api.save(opts) end,
+      desc = "Save current log buffer content to a file.",
+      args = {
+        { name = "filepath", required = false },
+      },
+    },
   },
 })
