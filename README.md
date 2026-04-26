@@ -45,6 +45,8 @@ Built upon the [`UNL.nvim`](https://github.com/taku25/UNL.nvim) library, it offe
     *   Log windows can be opened in vertical or horizontal splits, with customizable positions and sizes.
     *   You can configure the parent-child relationship between the UE log and build log windows (which one is primary).
     *   Toggle timestamp visibility.
+*   **Adaptive Polling**: When the log window is focused, polling accelerates to `max(50, polling_interval/5)` ms for a snappy feel. When the window is in the background (unfocused), polling slows to `min(2000, polling_interval*2)` ms, reducing CPU usage.
+*   **Error/Warning Navigation**: Press `]e` / `[e` in the log window to jump to the next/previous error or warning line.
 *   **Auto-Close Functionality**: Automatically closes the ULG windows and exits Neovim when the last non-log window is closed.
 *   **Highly Customizable**: Almost every aspect, including keymaps and highlight groups, can be customized via the `setup` function.
 *   **Statusline Integration**: Integrates with [lualine.nvim](https://github.com/nvim-lualine/lualine.nvim) to display an icon indicating that log monitoring is active. (**Optional**)
@@ -159,6 +161,8 @@ Below are all available options with their default values.
       search_prompt = "p",          -- Search within the view (highlight)
       jump_next_match = "]f",       -- Jump to the next filtered line
       jump_prev_match = "[f",       -- Jump to the previous filtered line
+      jump_next_error = "]e",       -- Jump to the next error/warning line
+      jump_prev_error = "[e",       -- Jump to the previous error/warning line
       toggle_build_log = "b",       -- (Note: This keymap is not currently used by ULG)
       show_help = "?",              -- Show help window
     },
@@ -222,6 +226,8 @@ Run these commands inside your Unreal Engine project directory.
 :ULG trace      " Open the most recent .utrace file in Saved/Profiling. Falls back to trace! if not found.
 :ULG trace!     " Open a .utrace picker to analyze and display information (can be slow on the first run as it generates a cache).
 :ULG remote     " Send a remote command to Unreal Engine using a function from the Kismet library.
+:ULG quickfix   " Populate Neovim's quickfix list with errors and warnings from the log buffers and open it.
+:ULG save [filepath] " Save the current log buffer to a file. Prompts with vim.ui.input if filepath is omitted.
 ```
 ### In the Log Window
 *   Press `P` (by default) to open an input prompt for sending remote commands to the Unreal Editor. Completion for configured commands is available.
