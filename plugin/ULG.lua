@@ -30,9 +30,14 @@ builder.create({
       bang = true, -- ! を受け付ける
       args = {},
     },
-    ["crash"] = { -- 追加
+    ["crash"] = {
       handler = function() api.crash() end,
       desc = "Select and open a crash log file.",
+      args = {},
+    },
+    ["uba"] = {
+      handler = function() api.uba() end,
+      desc = "Select and view a .uba UBA build trace log.",
       args = {},
     },
     ["remote"] = { -- 追加

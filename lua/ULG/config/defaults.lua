@@ -13,7 +13,12 @@ local M = {
   ui = {
     picker = {
       mode = "auto",
-      prefer = { "telescope", "fzf-lua", "native", "dummy" },
+      prefer = { "telescope", "fzf-lua", "snacks", "native", "dummy" },
+      behaviour = {
+        single = "native",
+        multiselect = "native",
+        multiselect_empty = "confirm_item",
+      },
     },
   },
   -- Manually specify the engine path if automatic detection fails.
