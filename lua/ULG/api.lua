@@ -35,8 +35,12 @@ function M.remote_command(command) -- 追加
   remote_cmd.execute_command(command)
 end
 
-function M.uba()
-  uba_cmd.execute()
+function M.uba(opts)
+  if opts and opts.bang then
+    uba_cmd.execute_pick()
+  else
+    uba_cmd.execute()
+  end
 end
 
 function M.quickfix()

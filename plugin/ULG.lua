@@ -36,8 +36,9 @@ builder.create({
       args = {},
     },
     ["uba"] = {
-      handler = function() api.uba() end,
-      desc = "Select and view a .uba UBA build trace log.",
+      handler = function(opts) api.uba(opts) end,
+      desc = "Display latest .uba build trace log. Use 'uba!' to pick a file.",
+      bang = true,
       args = {},
     },
     ["remote"] = { -- 追加
