@@ -110,7 +110,8 @@ local M = {
       show_help = "?", -- ★ この行を追加
     },
     general_log = {
-      jump_to_source = "<CR>",
+      jump_to_source   = "<CR>",
+      send_to_quickfix = "Q",
     }
   },
 

@@ -12,7 +12,8 @@ local M = {}
 function M.create_spec(conf)
   local keymaps = { ["q"] = "<cmd>lua require('ULG.api').close()<cr>" }
   local keymap_name_to_func = {
-    jump_to_source = "open_file_from_log",
+    jump_to_source    = "open_file_from_log",
+    send_to_quickfix  = "send_to_quickfix",
   }
   for name, key in pairs(conf.keymaps.general_log or {}) do
     local func_name = keymap_name_to_func[name]
@@ -74,6 +75,60 @@ end
 function M.is_open()
   local s = view_state.get_state("general_log_view")
   return s.handle ~= nil
+end
+
+function M.send_to_quickfix()
+  local s = view_state.get_state("general_log_view")
+  if not s.handle then
+    vim.notify("ULG: general log is not open.", vim.log.levels.WARN)
+    return
+  end
+  local buf_id = s.handle._buf
+  if not buf_id or not vim.api.nvim_buf_is_valid(buf_id) then return end
+
+  local all_lines = vim.api.nvim_buf_get_lines(buf_id, 0, -1, false)
+
+  -- MSVC: "C:\path\file.cpp(10): error C2065: ..."
+  -- MSVC: "C:\path\file.cpp(10,5): error ..."
+  local msvc_pat = "([A-Za-z]:[/\\].-)%((%d+)[,%d]*%):%s*(.*)"
+  -- UBT: "ERROR: message (no file info)"
+  local ubt_error_pat = "^ERROR%s*:%s*(.*)"
+
+  local qf_items = {}
+  for _, line in ipairs(all_lines) do
+    local filepath, lnum, text = line:match(msvc_pat)
+    if filepath and lnum then
+      local type_char = "E"
+      if line:lower():match("warning") then type_char = "W" end
+      table.insert(qf_items, {
+        filename = filepath,
+        lnum     = tonumber(lnum),
+        col      = 1,
+        text     = text or line,
+        type     = type_char,
+      })
+    else
+      local msg = line:match(ubt_error_pat)
+      if msg then
+        table.insert(qf_items, {
+          filename = "",
+          lnum     = 0,
+          col      = 0,
+          text     = msg,
+          type     = "E",
+        })
+      end
+    end
+  end
+
+  if #qf_items == 0 then
+    vim.notify("ULG: no errors or warnings found in log.", vim.log.levels.INFO)
+    return
+  end
+
+  vim.fn.setqflist({}, "r", { title = "UBT Build Errors", items = qf_items })
+  vim.cmd("copen")
+  vim.notify(string.format("ULG: %d item(s) sent to quickfix.", #qf_items), vim.log.levels.INFO)
 end
 
 function M.append_lines(lines)
