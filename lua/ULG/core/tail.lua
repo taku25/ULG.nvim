@@ -15,16 +15,7 @@ function M.start(filepath, interval_ms, on_new_lines)
   end
 
   local last_size = -1 -- 初回読み込みを確実に行うために-1で初期化
-
-  -- 監視を停止するためのハンドル
-  local tailer = {
-    filepath = filepath,
-    stop = function()
-      if poll_handle and not poll_handle:is_closing() then
-        poll_handle:stop()
-      end
-    end,
-  }
+  local current_interval_ms = interval_ms
 
   -- ファイルの新しい部分を読み込んでコールバックを呼ぶ関数
   local function read_new_content(is_initial)
@@ -66,13 +57,35 @@ function M.start(filepath, interval_ms, on_new_lines)
   local poll_callback = function(poll_err, _, curr_stat)
     if poll_err then
       -- 例: ファイルが削除されたなど
-      tailer.stop()
+      if poll_handle and not poll_handle:is_closing() then poll_handle:stop() end
       return
     end
     if curr_stat and curr_stat.size > last_size then
       read_new_content(false)
     end
   end
+
+  -- 監視を停止するためのハンドル
+  local tailer = {
+    filepath = filepath,
+    stop = function()
+      if poll_handle and not poll_handle:is_closing() then
+        poll_handle:stop()
+      end
+    end,
+    reset = function()
+      last_size = 0
+    end,
+    -- ポーリング間隔を動的に変更する
+    set_interval = function(new_interval_ms)
+      if new_interval_ms == current_interval_ms then return end
+      current_interval_ms = new_interval_ms
+      if poll_handle and not poll_handle:is_closing() then
+        poll_handle:stop()
+        poll_handle:start(filepath, current_interval_ms, poll_callback)
+      end
+    end,
+  }
 
   -- 監視を開始
   poll_handle:start(filepath, interval_ms, poll_callback)

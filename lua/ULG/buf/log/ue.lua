@@ -94,6 +94,10 @@ function M.toggle_timestamp()
 end
 
 function M.clear_content()
+  local s = view_state.get_state("ue_log_view")
+  if s.tailer and s.tailer.reset then
+    s.tailer.reset()
+  end
   view_state.update_state("ue_log_view", { master_lines = {} })
   refresh_view()
   log.get().info("Log content cleared.")
@@ -144,6 +148,43 @@ function M.jump_prev()
   log.get().debug("Jump to prev match (not implemented yet)")
 end
 
+--- 現在カーソルより下にあるエラー/警告行へジャンプする
+-- @param direction number 1=下, -1=上
+local function jump_to_diagnostic(direction)
+  local s = view_state.get_state("ue_log_view")
+  if not (s.handle and s.handle:is_open()) then return end
+  local win_id = s.handle:get_win_id()
+  if not (win_id and vim.api.nvim_win_is_valid(win_id)) then return end
+  local buf_id = vim.api.nvim_win_get_buf(win_id)
+  local current_line = vim.api.nvim_win_get_cursor(win_id)[1]
+  local total_lines = vim.api.nvim_buf_line_count(buf_id)
+
+  local pattern = [[\v([Ee]rror|[Ww]arning|\[Error\]|\[Warning\])]]
+  local start, stop_, step
+  if direction > 0 then
+    start, stop_, step = current_line + 1, total_lines, 1
+  else
+    start, stop_, step = current_line - 1, 1, -1
+  end
+
+  for i = start, stop_, step do
+    local line = vim.api.nvim_buf_get_lines(buf_id, i - 1, i, false)[1] or ""
+    if vim.fn.match(line, pattern) >= 0 then
+      vim.api.nvim_win_set_cursor(win_id, { i, 0 })
+      return
+    end
+  end
+  log.get().info("No more error/warning lines.")
+end
+
+function M.jump_next_error()
+  jump_to_diagnostic(1)
+end
+
+function M.jump_prev_error()
+  jump_to_diagnostic(-1)
+end
+
 function M.show_help()
   help_window.toggle()
 end
@@ -171,7 +212,10 @@ function M.create_spec(conf)
     search_prompt = "prompt_search",
     remote_command_prompt = "prompt_remote_command",
     jump_next_match = "jump_next",
-    jump_prev_match = "jump_prev", show_help = "show_help",
+    jump_prev_match = "jump_prev",
+    jump_next_error = "jump_next_error",
+    jump_prev_error = "jump_prev_error",
+    show_help = "show_help",
   }
   for name, key in pairs(conf.keymaps.log or {}) do
     local func_name = keymap_name_to_func[name]
@@ -248,6 +292,35 @@ function M.start_tailing(filepath, conf)
   end)
 
   view_state.update_state("ue_log_view", { tailer = new_tailer })
+
+  -- アダプティブポーリング: ULG ウィンドウがアクティブなときは速く、非アクティブ時は遅くする
+  local active_interval   = math.max(50,  math.floor((conf.polling_interval_ms or 500) / 5))
+  local inactive_interval = math.min(2000, (conf.polling_interval_ms or 500) * 2)
+  local augroup = vim.api.nvim_create_augroup("ULGAdaptivePoll", { clear = true })
+  vim.api.nvim_create_autocmd({ "WinEnter", "BufWinEnter" }, {
+    group = augroup,
+    callback = function()
+      local s = view_state.get_state("ue_log_view")
+      if not (s.handle and s.handle:is_open()) then return end
+      local cur_win = vim.api.nvim_get_current_win()
+      local log_win = s.handle:get_win_id()
+      if cur_win == log_win and s.tailer and s.tailer.set_interval then
+        s.tailer.set_interval(active_interval)
+      end
+    end,
+  })
+  vim.api.nvim_create_autocmd({ "WinLeave" }, {
+    group = augroup,
+    callback = function()
+      local s = view_state.get_state("ue_log_view")
+      if not (s.handle and s.handle:is_open()) then return end
+      local cur_win = vim.api.nvim_get_current_win()
+      local log_win = s.handle:get_win_id()
+      if cur_win == log_win and s.tailer and s.tailer.set_interval then
+        s.tailer.set_interval(inactive_interval)
+      end
+    end,
+  })
 end
 
 return M

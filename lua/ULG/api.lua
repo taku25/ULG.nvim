@@ -1,11 +1,12 @@
 -- lua/ULG/api.lua (修正版)
 
 local start_cmd = require("ULG.cmd.start")
-local stop_cmd = require("ULG.cmd.stop") -- ★ stop_cmdをrequire
-local close_cmd = require("ULG.cmd.close") -- ★ stop_cmdをrequire
-local trace_cmd = require("ULG.cmd.trace") -- ★ stop_cmdをrequire
-local crash_cmd = require("ULG.cmd.crash") -- 追加
-local remote_cmd = require("ULG.cmd.remote") -- 追加
+local stop_cmd = require("ULG.cmd.stop")
+local close_cmd = require("ULG.cmd.close")
+local trace_cmd = require("ULG.cmd.trace")
+local crash_cmd = require("ULG.cmd.crash")
+local remote_cmd = require("ULG.cmd.remote")
+local uba_cmd = require("ULG.cmd.uba")
 
 local M = {}
 
@@ -32,6 +33,22 @@ end
 
 function M.remote_command(command) -- 追加
   remote_cmd.execute_command(command)
+end
+
+function M.uba(opts)
+  if opts and opts.bang then
+    uba_cmd.execute_pick()
+  else
+    uba_cmd.execute()
+  end
+end
+
+function M.quickfix()
+  require("ULG.cmd.quickfix").execute()
+end
+
+function M.save(opts)
+  require("ULG.cmd.save").execute(opts)
 end
 
 function M.get_available_traces()

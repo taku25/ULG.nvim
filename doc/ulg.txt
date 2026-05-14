@@ -31,6 +31,11 @@ Main Features:
 Real-time Log Tailing:
 Monitors file changes and automatically displays new logs (tail).
 
+Adaptive Polling:
+When the log window is focused, polling interval accelerates to
+max(50, polling_interval/5) ms. When unfocused, it slows to
+min(2000, polling_interval*2) ms to reduce CPU usage.
+
 Syntax Highlighting:
 Improves readability by coloring log levels like Error and Warning, as
 well as categories, timestamps, and file paths.
@@ -60,6 +65,18 @@ Stops tailing the current log (the log window remains open).
 
 To close the log window itself, focus it and execute :q.
 
+:ULG quickfix                                          *ULG-quickfix*
+Collects all errors and warnings from the current log buffers (UE log
+and build log) and populates Neovim's quickfix list. The quickfix
+window is opened automatically. Useful for reviewing and navigating
+to all build errors without leaving Neovim.
+
+:ULG save [{filepath}]                                 *ULG-save*
+Saves the current log buffer content to a file.
+- If `{filepath}` is provided, saves directly to that path.
+- If omitted, prompts for a file path via `vim.ui.input`. The default
+  suggestion is `ulg_export.log` in the current buffer's directory.
+
 Keymaps ULG-keymaps
 
 These are the default keymaps available in the log window.
@@ -81,6 +98,8 @@ c         - Clear the contents of the log window
 h         - Search (highlight) within the visible logs
 ]f        - Jump to the next filtered line
 [f        - Jump to the previous filtered line
+]e        - Jump to the next error or warning line
+[e        - Jump to the previous error or warning line
 ?         - Show the help window
 
 ==============================================================================
@@ -136,6 +155,9 @@ lua
   
   -- Interval to check for log file changes (in milliseconds)
   polling_interval_ms = 500,
+  -- Adaptive polling: when the log window is focused, the interval
+  -- accelerates to max(50, polling_interval_ms/5) ms. When unfocused,
+  -- it slows to min(2000, polling_interval_ms*2) ms.
   -- Maximum number of log lines to render at once
   render_chunk_size = 500,
   
@@ -154,6 +176,8 @@ lua
     search_prompt = "h",
     jump_next_match = "]f",
     jump_prev_match = "[f",
+    jump_next_error = "]e",
+    jump_prev_error = "[e",
     show_help = "?",
   },
 

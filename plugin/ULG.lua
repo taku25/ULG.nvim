@@ -30,15 +30,33 @@ builder.create({
       bang = true, -- ! を受け付ける
       args = {},
     },
-    ["crash"] = { -- 追加
+    ["crash"] = {
       handler = function() api.crash() end,
       desc = "Select and open a crash log file.",
+      args = {},
+    },
+    ["uba"] = {
+      handler = function(opts) api.uba(opts) end,
+      desc = "Display latest .uba build trace log. Use 'uba!' to pick a file.",
+      bang = true,
       args = {},
     },
     ["remote"] = { -- 追加
       handler = function() api.remote() end,
       desc = "Remote Prompt to Unreal.",
       args = {},
+    },
+    ["quickfix"] = {
+      handler = function() api.quickfix() end,
+      desc = "Populate quickfix list with errors and warnings from log buffers.",
+      args = {},
+    },
+    ["save"] = {
+      handler = function(opts) api.save(opts) end,
+      desc = "Save current log buffer content to a file.",
+      args = {
+        { name = "filepath", required = false },
+      },
     },
   },
 })

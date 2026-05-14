@@ -13,7 +13,12 @@ local M = {
   ui = {
     picker = {
       mode = "auto",
-      prefer = { "telescope", "fzf-lua", "native", "dummy" },
+      prefer = { "telescope", "fzf-lua", "snacks", "native", "dummy" },
+      behaviour = {
+        single = "native",
+        multiselect = "native",
+        multiselect_empty = "confirm_item",
+      },
     },
   },
   -- Manually specify the engine path if automatic detection fails.
@@ -88,7 +93,9 @@ local M = {
       remote_command_prompt = "P",
       jump_next_match = "]f",
       jump_prev_match = "[f",
-      toggle_build_log = "b", -- (このキーマップは将来的に general_log の toggle になる可能性がある)
+      jump_next_error = "]e",
+      jump_prev_error = "[e",
+      toggle_build_log = "b",
       show_help = "?",
     },
         -- トレースサマリービューワー用のキーマップ
