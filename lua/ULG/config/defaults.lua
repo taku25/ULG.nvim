@@ -117,8 +117,9 @@ local M = {
       show_help = "?", -- ★ この行を追加
     },
     general_log = {
-      jump_to_source   = "<CR>",
-      send_to_quickfix = "Q",
+      jump_to_source       = "<CR>",
+      send_to_quickfix     = "Q",
+      toggle_error_filter  = "e",
     }
   },
 

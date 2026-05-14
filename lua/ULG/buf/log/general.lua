@@ -9,11 +9,21 @@ local M = {}
 -- Public API
 --------------------------------------------------------------------------------
 
+-- Error/Warning フィルターの状態 (バッファごと)
+local filter_state = {
+  enabled = false,
+  original_lines = nil, -- フィルター有効化時に元行を保存
+}
+
+local ERROR_PAT   = [[\v[Ee]rror[: ]|\[ERROR\]|^ERROR]]
+local WARNING_PAT = [[\v[Ww]arning[: ]|\[WARNING\]|^WARNING]]
+
 function M.create_spec(conf)
   local keymaps = { ["q"] = "<cmd>lua require('ULG.api').close()<cr>" }
   local keymap_name_to_func = {
-    jump_to_source    = "open_file_from_log",
-    send_to_quickfix  = "send_to_quickfix",
+    jump_to_source       = "open_file_from_log",
+    send_to_quickfix     = "send_to_quickfix",
+    toggle_error_filter  = "toggle_error_filter",
   }
   for name, key in pairs(conf.keymaps.general_log or {}) do
     local func_name = keymap_name_to_func[name]
@@ -69,6 +79,10 @@ function M.clear_buffer()
       vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, {})
       vim.api.nvim_set_option_value("modifiable", false, { buf = buf_id })
     end
+    -- フィルター状態もリセット
+    filter_state.enabled = false
+    filter_state.original_lines = nil
+    M.set_title("[[ General Log ]]")
   end
 end
 
@@ -131,6 +145,47 @@ function M.send_to_quickfix()
   vim.notify(string.format("ULG: %d item(s) sent to quickfix.", #qf_items), vim.log.levels.INFO)
 end
 
+function M.toggle_error_filter()
+  local s = view_state.get_state("general_log_view")
+  if not s.handle then
+    vim.notify("ULG: general log is not open.", vim.log.levels.WARN)
+    return
+  end
+  local buf_id = s.handle._buf
+  if not buf_id or not vim.api.nvim_buf_is_valid(buf_id) then return end
+
+  if filter_state.enabled then
+    -- フィルター解除: 元の行を復元
+    filter_state.enabled = false
+    local restore = filter_state.original_lines or {}
+    filter_state.original_lines = nil
+    vim.api.nvim_set_option_value("modifiable", true, { buf = buf_id })
+    vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, restore)
+    vim.api.nvim_set_option_value("modifiable", false, { buf = buf_id })
+    M.set_title("[[ General Log ]]")
+    vim.notify("ULG: filter off — showing all lines.", vim.log.levels.INFO)
+  else
+    -- フィルター有効: Error/Warning 行だけ残す
+    local all_lines = vim.api.nvim_buf_get_lines(buf_id, 0, -1, false)
+    filter_state.original_lines = all_lines
+    filter_state.enabled = true
+    local filtered = vim.tbl_filter(function(line)
+      return vim.fn.match(line, ERROR_PAT) >= 0
+          or vim.fn.match(line, WARNING_PAT) >= 0
+    end, all_lines)
+    vim.api.nvim_set_option_value("modifiable", true, { buf = buf_id })
+    vim.api.nvim_buf_set_lines(buf_id, 0, -1, false, filtered)
+    vim.api.nvim_set_option_value("modifiable", false, { buf = buf_id })
+    local cnt = #filtered
+    M.set_title(string.format("[[ General Log — ERROR/WARN filter: %d lines ]]", cnt))
+    vim.notify(string.format("ULG: filter on — %d error/warning line(s) shown.", cnt), vim.log.levels.INFO)
+  end
+end
+
+function M.is_filter_enabled()
+  return filter_state.enabled
+end
+
 function M.append_lines(lines)
   local s = view_state.get_state("general_log_view")
   if not s.handle then return end
@@ -138,7 +193,25 @@ function M.append_lines(lines)
   if type(lines) == "string" then
     lines = { lines }
   end
-  if #lines > 0 then
+  if #lines == 0 then return end
+
+  if filter_state.enabled then
+    -- フィルター中は原本リストに追記し、Error/Warning 行のみバッファに反映
+    for _, l in ipairs(lines) do
+      table.insert(filter_state.original_lines, l)
+    end
+    local new_errors = vim.tbl_filter(function(l)
+      return vim.fn.match(l, ERROR_PAT) >= 0
+          or vim.fn.match(l, WARNING_PAT) >= 0
+    end, lines)
+    if #new_errors > 0 then
+      s.handle:add_lines(new_errors)
+      local buf_id = s.handle._buf
+      local total = buf_id and vim.api.nvim_buf_is_valid(buf_id)
+          and #vim.api.nvim_buf_get_lines(buf_id, 0, -1, false) or 0
+      M.set_title(string.format("[[ General Log — ERROR/WARN filter: %d lines ]]", total))
+    end
+  else
     s.handle:add_lines(lines)
   end
 end
